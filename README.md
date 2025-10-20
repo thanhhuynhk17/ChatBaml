@@ -18,9 +18,11 @@ See [Tutorial](tutorial.md) for detailed steps to create custom LangChain model.
 
 ## Installation
 
-Create and activate a virtual environment, then install the package in editable mode:
+Clone this repo, create and activate a virtual environment, then install the package in editable mode:
 
 ```bash
+git clone https://github.com/tranngocphu/custom_langchain_chat_model.git
+cd custom_langchain_chat_model
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
