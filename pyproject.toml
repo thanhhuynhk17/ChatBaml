@@ -1,0 +1,12 @@
+[project]
+name = "custom-langchain-model"
+version = "0.1.0"
+description = "LangChain custom chat model tutorial"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "langchain>=1.0.0",
+    "langgraph>=1.0.0",
+    "pydantic>=2.12.3",
+    "pydantic-settings>=2.11.0",
+]
