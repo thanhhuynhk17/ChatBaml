@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug parse_json_schema.py",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/custom_langchain_model/helpers/parse_json_schema.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      }
+    }
+  ]
+}
