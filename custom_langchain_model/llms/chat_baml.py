@@ -1,9 +1,20 @@
 import os
+from dotenv import load_dotenv, find_dotenv
+load_dotenv(find_dotenv())
+
 import json
 import logging
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Literal, Optional, Sequence, Union
 from baml_py import ClientRegistry
-from baml_client import b as baml_root_client
+from baml_client import (
+    b as baml_root_client
+)
+from baml_client.types import (
+    Message as BamlMessage
+)
+
+from custom_langchain_model.llms.types import Provider
+
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import (
     AIMessage,
@@ -18,6 +29,7 @@ from langchain_core.callbacks import CallbackManagerForLLMRun
 
 logger = logging.getLogger(__name__)
 
+
 class ChatBaml(BaseChatModel):
     """
     A LangChain-compatible Chat Model that wraps BAML.
@@ -26,10 +38,15 @@ class ChatBaml(BaseChatModel):
     
     model: str = "gpt-4o"
     temperature: float = 0.0
-    provider: str = "openai"
+    provider: Provider = "openai-generic"
     api_key: Optional[str] = None
     base_url: Optional[str] = None
     max_tokens: Optional[int] = None
+    # Baml special args
+    default_role: Optional[str] = None # Baml required default_role='user' when using VLLM
+    allowed_roles: Optional[List[str]] = ["system", "user", "assistant", "tool"] # Default: ["system", "user", "assistant"] 
+    
+    # Additional options
     additional_options: Dict[str, Any] = {}
 
     def __init__(self, **kwargs: Any):
@@ -51,37 +68,59 @@ class ChatBaml(BaseChatModel):
         return "baml-chat-wrapper"
 
     def _get_client_registry(self) -> ClientRegistry:
-        """Creates a BAML ClientRegistry based on current parameters."""
-        logger.debug(f"Creating ClientRegistry for {self.provider}/{self.model}")
-        cr = ClientRegistry()
+        # https://docs.boundaryml.com/ref/baml_client/client-registry
         
+        if self.provider != "openai-generic":
+            raise ValueError(
+                f"ChatBaml currently only supports provider='openai-generic'. "
+                f"Received: provider='{self.provider}'. "
+                "Use a different wrapper class if you need other providers."
+            )
+
+        cr = ClientRegistry()
+
+        api_key = self.api_key
+        if api_key is None:
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                raise ValueError(
+                    "No OpenAI API key provided. "
+                    "Either pass api_key=... when initializing ChatBaml, "
+                    "or set the OPENAI_API_KEY environment variable."
+                )
+
         options = {
             "model": self.model,
             "temperature": self.temperature,
+            "api_key": api_key,
         }
-        
-        if self.api_key:
-            options["api_key"] = self.api_key
-        elif "OPENAI_API_KEY" in os.environ and self.provider == "openai":
-            options["api_key"] = os.environ["OPENAI_API_KEY"]
-            
-        if self.base_url:
+
+        if self.base_url is not None:
             options["base_url"] = self.base_url
-        if self.max_tokens:
+
+        if self.max_tokens is not None:
             options["max_tokens"] = self.max_tokens
-            
-        # Merge additional options
-        options.update(self.additional_options)
-        
-        client_name = f"dynamic_{self.provider}_{self.model.replace('-', '_')}"
-        
-        logger.debug(f"Adding LLM client '{client_name}' with options: {list(options.keys())}")
+
+        if self.default_role is not None:
+            options["default_role"] = self.default_role
+
+        if self.allowed_roles is not None:
+            options["allowed_roles"] = self.allowed_roles
+
+
+        if self.additional_options:
+            options.update(self.additional_options)
+
+        # Use a stable, readable client name
+        client_name = f"OpenAIGeneric"
+
         cr.add_llm_client(
             name=client_name,
             provider=self.provider,
-            options=options
+            options=options,
         )
         cr.set_primary(client_name)
+
         return cr
 
     def _prepare_baml_input(self, messages: List[BaseMessage]) -> str:
