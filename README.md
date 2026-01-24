@@ -113,6 +113,81 @@ AI response: The sum of 47 and 42 is 89, and the product of 33 and 18 is 594.
 └─ tutorial.md              #  tutorial for building custom chat model
 </pre>
 
+## Tool Definition Guide for Pydantic Models
+
+This section explains how to properly define tools using Pydantic models for use with the ChatBaml system.
+
+### Basic Tool Structure
+
+```python
+from pydantic import BaseModel, Field
+
+class MyTool(BaseModel):
+    """Use this tool when you need to [describe purpose]."""
+    param1: type = Field(..., description="Description of param1")
+    param2: type = Field(..., description="Description of param2")
+    # Optional parameters without default values will be marked as optional in BAML
+    optional_param: type = Field(None, description="Optional parameter")
+```
+
+### Key Requirements
+
+1. **Class Description**: The docstring becomes the tool description in BAML
+2. **Field Descriptions**: Each parameter needs a description via `Field(..., description="...")`
+3. **Required vs Optional**: 
+   - Required: `Field(..., description="...")`
+   - Optional: `Field(None, description="...")` or `Field(default_value, description="...")`
+
+### Example: Math Tools
+
+```python
+class AddTool(BaseModel):
+    """Use this tool when you found that you need to quickly add two integers."""
+    a: int = Field(..., description="First integer to add")
+    b: int = Field(..., description="Second integer to add")
+
+class MultiplyTool(BaseModel):
+    """Use this tool when you found that you need to quickly multiply two integers."""
+    a: int = Field(..., description="First integer to multiply")
+    b: int = Field(..., description="Second integer to multiply")
+```
+
+### Usage with parse_json_schema.py
+
+```python
+from langchain_core.utils.function_calling import convert_to_openai_tool
+from custom_langchain_model.helpers.parse_json_schema import parse_json_schema
+from baml_client.type_builder import TypeBuilder
+
+# Convert Pydantic model to OpenAI tool format
+add_schema = convert_to_openai_tool(AddTool)
+multiply_schema = convert_to_openai_tool(MultiplyTool)
+
+# Create BAML type builder
+tb = TypeBuilder()
+
+# Parse each tool
+add_tool_type = parse_json_schema(add_schema, tb)
+multiply_tool_type = parse_json_schema(multiply_schema, tb)
+
+# Create union for multiple tools
+tools_union = tb.list(tb.union([add_tool_type, multiply_tool_type]))
+tb.DynamicSchema.add_property("data", tools_union)
+```
+
+This automatically generates the proper BAML schema with:
+- Action property with `tool_<name>` pattern
+- Proper field types and descriptions
+- Union types for multiple tools
+- Integration with the BAML type system
+
+### Advanced Features
+
+- **Nested Objects**: Use `Field(..., description="...")` for nested Pydantic models
+- **Enum Types**: Use `Literal` types for enum-like behavior
+- **Default Values**: Include default values in `Field(default_value, description="...")`
+- **Validation**: Pydantic validation rules are preserved in the BAML schema
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
