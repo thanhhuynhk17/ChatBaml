@@ -32,10 +32,12 @@ pip install -e .
 Create a `.env` file with your API credentials:
 
 ```bash
-# OpenAI Configuration
-OPENAI_API_KEY="your_openai_api_key"
-OPENAI_BASE_URL="https://api.openai.com/v1"
-OPENAI_MODEL_NAME="gpt-4o"
+OPENAI_MODEL_NAME="qwen3-vl"
+OPENAI_BASE_URL="http://localhost:8000/v1"
+OPENAI_API_KEY="sk_some_dummy_text"
+
+# Baml required when using OpenAI-compatible server hosted by vllm
+DEFAULT_ROLE="user"
 ```
 
 ## convert_to_baml_tool Usage
@@ -95,7 +97,7 @@ from baml_client.types import BamlState, BaseMessage
 # Convert tools to BAML schema
 tb = convert_to_baml_tool(
     tools=[AddTool, MultiplyTool, count_words],
-    property_name="selected_tool",
+    property_name="structure_output",
     is_multiple_tools=True
 )
 
@@ -115,7 +117,7 @@ baml_state = BamlState(
 
 # Call BAML function
 response = b.ChooseTool(baml_state, {"tb": tb})
-print(f"Selected tool: {response.structure_output}")
+print(f"Selected tool: {response.structure_output}") # response with property_name="structure_output"
 ```
 
 **Real Test Output**:
