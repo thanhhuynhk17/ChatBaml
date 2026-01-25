@@ -1,8 +1,19 @@
 # Active Context: Current Development Focus
 
-**Last Updated**: January 25, 2026  
-**Current Phase**: Phase 2 - Enhanced Features  
+**Last Updated**: January 25, 2026
+**Current Phase**: Phase 2 - Enhanced Features
 **Focus Area**: BAML Integration Validation and Tool Conversion System
+
+## 📋 Important: BAML Integration TODO List
+
+**Before proceeding, please check the TODO list in README.md** which outlines the current implementation priorities for making BAML act like a proper LangChain model. This includes:
+
+- Creating `BamlChatModel` class extending `BaseChatModel`
+- Implementing core methods (`_chat_completion_request`, `_agenerate`, `_generate`)
+- Setting up BAML client integration
+- Implementing tool binding using existing `convert_to_baml_tool()`
+
+The TODO list represents the current development focus and should be consulted for the latest implementation status.
 
 ## Current Work Focus
 

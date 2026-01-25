@@ -1,8 +1,18 @@
 # Progress Tracking: BAML + LangChain Integration
 
-**Last Updated**: January 25, 2026  
-**Project Phase**: Phase 2 - Enhanced Features  
+**Last Updated**: January 25, 2026
+**Project Phase**: Phase 2 - Enhanced Features
 **Overall Progress**: 85% Complete
+
+## 📋 Important: Active Development TODO
+
+**Please refer to the TODO list in README.md** for the current implementation priorities. The TODO list contains the most up-to-date development tasks for BAML model integration, including:
+
+- Core model implementation following tutorial.md pattern
+- BAML-specific adaptations for LangChain compatibility
+- Tool integration using existing conversion utilities
+
+This TODO list takes precedence over the progress tracking below and represents the immediate next steps.
 
 ## Current Status Overview
 

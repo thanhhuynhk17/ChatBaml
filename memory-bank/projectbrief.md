@@ -1,9 +1,20 @@
 # Project Brief: BAML + LangChain Integration
 
-**Project Name**: ChatBaml - Custom LangChain Chat Model with BAML Integration  
-**Created**: January 25, 2026  
-**Status**: Active Development  
+**Project Name**: ChatBaml - Custom LangChain Chat Model with BAML Integration
+**Created**: January 25, 2026
+**Status**: Active Development
 **Version**: 0.1.0
+
+## 📋 Important: Implementation TODO List
+
+**All developers should consult README.md** for the current BAML integration TODO list. This list contains the essential tasks needed to make BAML function as a proper LangChain model, including:
+
+- Creating the core `BamlChatModel` class
+- Implementing LangChain-compatible methods
+- Setting up BAML client integration
+- Leveraging existing tool conversion utilities
+
+The TODO list provides the most current development priorities and should be reviewed before working on this project.
 
 ## Project Overview
 

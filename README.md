@@ -1,12 +1,29 @@
-# Custom LangChain Chat Model with BAML Integration
-
-**Fork of**: [tranngocphu/custom_langchain_chat_model](https://github.com/tranngocphu/custom_langchain_chat_model)  
-**Enhancement**: BAML (BoundaryML) integration for structured data extraction and function calling  
-**Status**: Active Development ⚠️
-
-## Overview
+# Overview
 
 This project extends a Custom LangChain Chat Model to integrate with BAML, creating a bridge between LangChain's powerful LLM orchestration capabilities and BAML's structured data extraction and function calling features.
+
+## 🚀 BAML Model Integration TODO
+
+### Core Implementation
+- [ ] Create `BamlChatModel` extending `BaseChatModel`
+- [ ] Implement `_chat_completion_request()` for BAML API calls
+- [ ] Implement `_agenerate()` method following tutorial pattern
+- [ ] Implement `_generate()` method (sync fallback)
+- [ ] Implement `model_post_init()` for BAML client setup
+- [ ] Implement `_prepare_messages()` for message conversion
+
+### Tool Integration
+- [ ] Implement `bind_tools()` using existing `convert_to_baml_tool()`
+- [ ] Implement `_convert_tool()` for tool format conversion
+
+- [ ] ...
+---
+
+## Custom LangChain Chat Model with BAML Integration
+
+- **Fork of**: [tranngocphu/custom_langchain_chat_model](https://github.com/tranngocphu/custom_langchain_chat_model)
+- **Enhancement**: BAML (BoundaryML) integration for structured data extraction and function calling
+- **Status**: Active Development ⚠️
 
 ### Key Enhancements from Original
 
