@@ -1,199 +1,271 @@
-# Custom LangChain Chat Model
+# Custom LangChain Chat Model with BAML Integration
 
-LangChain and LangGraph is powerful frameworks for orchestrating language model workflows, but sometimes you need to use a private or proprietary LLM API (for example, your company's internal model, or a paid API with custom authentication). This repository provides working code that builds a custom chat model **fully compatible** with LangChain and LangGraph APIs.
+**Fork of**: [tranngocphu/custom_langchain_chat_model](https://github.com/tranngocphu/custom_langchain_chat_model)  
+**Enhancement**: BAML (BoundaryML) integration for structured data extraction and function calling  
+**Status**: Active Development ⚠️
 
-## Tutorial
+## Overview
 
-See [Tutorial](tutorial.md) for detailed steps to create custom LangChain model.
+This project extends a Custom LangChain Chat Model to integrate with BAML, creating a bridge between LangChain's powerful LLM orchestration capabilities and BAML's structured data extraction and function calling features.
 
+### Key Enhancements from Original
 
-## Requirements
+- **BAML Integration**: LangChain-compatible wrapper with BAML function access
+- **Automatic Tool Conversion**: Pydantic models → BAML schemas via `convert_to_baml_tool`
+- **Enhanced Tool Support**: Support for both Pydantic BaseModel and `@tool` decorated functions
+- **Dynamic Configuration**: Environment-based setup with multiple provider support
 
-- Python >= 3.13
-- Key dependencies
-	- langchain >= 1.0.0
-	- langgraph >= 1.0.0
-	- pydantic >= 2.12.3
-	- pydantic-settings >= 2.11.0
+## Quick Start
 
-## Installation
-
-Clone this repo, create and activate a virtual environment, then install the package in editable mode:
+### Installation
 
 ```bash
-git clone https://github.com/tranngocphu/custom_langchain_chat_model.git
-cd custom_langchain_chat_model
+git clone https://github.com/thanhhuynhk17/ChatBaml.git
+cd ChatBaml
 python -m venv .venv
 source .venv/bin/activate
-python -m pip install --upgrade pip
 pip install -e .
 ```
 
-## Environment variables
+### Environment Setup
 
-The project uses `pydantic-settings` to load configuration from environment variables or a `.env` file. Create a `.env` file at the project root with these variables:
-
-<pre style="white-space: pre; overflow-x: auto;">
-API_OAUTH_URL="https://your_base_api_url/oauth/token"
-API_BASE_URL="https://your_base_api_url/openai/deployments/{model}/chat/completions"
-API_KEY="your_api_key"
-API_SECRET="your_api_secret"
-</pre>
-
-- `API_BASE_URL` is used in `custom_langchain_model/llms/models.py` and is expected to be a format string with a `{model}` placeholder. You must update your custom model if this pattern doesn't apply in your case.
-- This repo assumes you need API key and API secret to request a bearer token via `API_OAUTH_URL`. You must update authentication mechanism in the custom model according to the specs of your private LLM API.
-
-## Quick run
-
-Run the example runner in `main.py` (this uses the graph-based example and prints an AI response):
+Create a `.env` file with your API credentials:
 
 ```bash
-python main.py
+# OpenAI Configuration
+OPENAI_API_KEY="your_openai_api_key"
+OPENAI_BASE_URL="https://api.openai.com/v1"
+OPENAI_MODEL_NAME="gpt-4o"
 ```
 
-## Full example walkthrough: [full_example.py](full_example.py)
-```bash
-python full_example.py
-```
+## convert_to_baml_tool Usage
 
-In this example, the private LLM is provided with 2 simple math tools: `add` and `multiply`. A user prompt requests the graph to calculate sum and product of 2 integers. The callback handlers will log the full execution events of a graph invocation as follows.
+The `convert_to_baml_tool` function in `custom_langchain_model/helpers/parse_json_schema.py` automatically converts tools to BAML schemas.
 
-<pre style="white-space: pre; overflow-x: auto;">
-You asked: What's the sum of 47 and 42, and the product of 33 and 18?
-[21:00:56,275] [INFO] custom_langchain_model.llms.callbacks: Chain started: name LangGraph, run_id ee694423-5fb9-4d45-83bc-eb9f48fe2dba, parent_run_id: None
-[21:00:56,276] [INFO] custom_langchain_model.llms.callbacks: Chain started: name llm, run_id 49a5bb4d-67b3-43a1-b39e-76c67ed3e459, parent_run_id: ee694423-5fb9-4d45-83bc-eb9f48fe2dba
-[21:00:56,277] [INFO] custom_langchain_model.llms.callbacks: Chat model started: name AzureOpenAI_gpt-4o, run_id b54776f3-4bdc-4ecc-8dbc-81a41a4f8794, parent_run_id: 49a5bb4d-67b3-43a1-b39e-76c67ed3e459
-[21:00:56,277] [INFO] custom_langchain_model.llms.callbacks: Chat model started with messages: What's the sum of 47 and 42, and the product of 33 and 18?
-[21:00:56,970] [INFO] custom_langchain_model.core.security: Fetched new access token
-[21:00:58,460] [INFO] custom_langchain_model.llms.callbacks: Chat model ended: name None, run_id b54776f3-4bdc-4ecc-8dbc-81a41a4f8794, parent_run_id: 49a5bb4d-67b3-43a1-b39e-76c67ed3e459
-[21:00:58,461] [INFO] custom_langchain_model.llms.callbacks: Chain started: name router, run_id 2f9b27fc-ba4f-42ad-83f1-ad9ba9516081, parent_run_id: 49a5bb4d-67b3-43a1-b39e-76c67ed3e459
-[21:00:58,462] [INFO] custom_langchain_model.llms.callbacks: Chain ended: name None, run_id 2f9b27fc-ba4f-42ad-83f1-ad9ba9516081, parent_run_id: 49a5bb4d-67b3-43a1-b39e-76c67ed3e459
-[21:00:58,462] [INFO] custom_langchain_model.llms.callbacks: Chain ended: name None, run_id 49a5bb4d-67b3-43a1-b39e-76c67ed3e459, parent_run_id: ee694423-5fb9-4d45-83bc-eb9f48fe2dba
-[21:00:58,463] [INFO] custom_langchain_model.llms.callbacks: Chain started: name tools, run_id 078ee3fe-cc72-40b0-a4d6-8a10a8be8495, parent_run_id: ee694423-5fb9-4d45-83bc-eb9f48fe2dba
-[21:00:58,464] [INFO] custom_langchain_model.llms.callbacks: Tool {'name': 'add', 'description': 'Add two integers.'} started with input: {'a': 47, 'b': 42}.
-[21:00:58,465] [INFO] custom_langchain_model.llms.callbacks: Tool {'name': 'multiply', 'description': 'Multiply two integers.'} started with input: {'x': 33, 'y': 18}.
-[21:00:58,465] [INFO] custom_langchain_model.llms.callbacks: Tool add ended with output: content='89' name='add' tool_call_id='call_1aiqjdVVmzbZzuK7Q6vDfUkj'
-[21:00:58,466] [INFO] custom_langchain_model.llms.callbacks: Tool multiply ended with output: content='594' name='multiply' tool_call_id='call_0XimgvDX3aio2AeDzknfTEAg'
-[21:00:58,467] [INFO] custom_langchain_model.llms.callbacks: Chain ended: name None, run_id 078ee3fe-cc72-40b0-a4d6-8a10a8be8495, parent_run_id: ee694423-5fb9-4d45-83bc-eb9f48fe2dba
-[21:00:58,467] [INFO] custom_langchain_model.llms.callbacks: Chain started: name llm, run_id dd4ed834-9ff1-4aec-a007-f0538c38cfdf, parent_run_id: ee694423-5fb9-4d45-83bc-eb9f48fe2dba
-[21:00:58,468] [INFO] custom_langchain_model.llms.callbacks: Chat model started: name AzureOpenAI_gpt-4o, run_id 8a3f8b68-f75e-4d5e-a2a9-41c895b4cd47, parent_run_id: dd4ed834-9ff1-4aec-a007-f0538c38cfdf
-[21:00:58,468] [INFO] custom_langchain_model.llms.callbacks: Chat model started with messages: 594
-[21:00:58,468] [INFO] custom_langchain_model.core.security: Using cached access token
-[21:00:59,761] [INFO] custom_langchain_model.llms.callbacks: Chat model ended: name None, run_id 8a3f8b68-f75e-4d5e-a2a9-41c895b4cd47, parent_run_id: dd4ed834-9ff1-4aec-a007-f0538c38cfdf
-[21:00:59,761] [INFO] custom_langchain_model.llms.callbacks: Chain started: name router, run_id fd1a1392-7a12-4136-a87b-fb4a2dfc6156, parent_run_id: dd4ed834-9ff1-4aec-a007-f0538c38cfdf
-[21:00:59,762] [INFO] custom_langchain_model.llms.callbacks: Chain ended: name None, run_id fd1a1392-7a12-4136-a87b-fb4a2dfc6156, parent_run_id: dd4ed834-9ff1-4aec-a007-f0538c38cfdf
-[21:00:59,762] [INFO] custom_langchain_model.llms.callbacks: Chain ended: name None, run_id dd4ed834-9ff1-4aec-a007-f0538c38cfdf, parent_run_id: ee694423-5fb9-4d45-83bc-eb9f48fe2dba
-[21:00:59,763] [INFO] custom_langchain_model.llms.callbacks: Chain ended: name None, run_id ee694423-5fb9-4d45-83bc-eb9f48fe2dba, parent_run_id: None
-AI response: The sum of 47 and 42 is 89, and the product of 33 and 18 is 594.
-</pre>
+### Supported Tool Types
 
-
-## Codebase overview
-<pre style="white-space: pre; overflow-x: auto;">
-|─ custom_langchain_model/  #
-|   ├─ core/
-|   │  ├─ __init__.py
-|   │  ├─ config.py         #  load env variables from .env to settings object
-|   │  ├─ logging.py        #  configurate logging for callback handlers
-|   │  └─ security.py       #  get and globally store private LLM API access token
-|   ├─ llms/
-|   │  ├─ __init__.py
-|   │  ├─ callbacks.py      #  define callback handlers
-|   │  ├─ contexts.py       #  define LangGraph context schema (pydantic object)
-|   │  ├─ graphs.py         #  define LangGraph chat flow 
-|   │  ├─ models.py         #  define custom LangChain chat mode wrapping private LLM API
-|   │  ├─ states.py         #  define LangGaph state schema (pydandic object)
-|   │  └─ tools.py          #  define tools used with LangGraph model
-|   └─ __init__.py
-├─ .env.sample              #  example of .env
-├─ full_example.py          #  full example of using the custom model with LangGraph
-├─ README.md
-├─ main.py                  #  code quick run
-├─ pyproject.toml           #  project configuration and dependencies
-└─ tutorial.md              #  tutorial for building custom chat model
-</pre>
-
-## Tool Definition Guide for Pydantic Models
-
-This section explains how to properly define tools using Pydantic models for use with the ChatBaml system.
-
-### Basic Tool Structure
+#### 1. Pydantic BaseModel (Recommended)
 
 ```python
 from pydantic import BaseModel, Field
 
-class MyTool(BaseModel):
-    """Use this tool when you need to [describe purpose]."""
-    param1: type = Field(..., description="Description of param1")
-    param2: type = Field(..., description="Description of param2")
-    # Optional parameters without default values will be marked as optional in BAML
-    optional_param: type = Field(None, description="Optional parameter")
-```
-
-### Key Requirements
-
-1. **Class Description**: The docstring becomes the tool description in BAML
-2. **Field Descriptions**: Each parameter needs a description via `Field(..., description="...")`
-3. **Required vs Optional**: 
-   - Required: `Field(..., description="...")`
-   - Optional: `Field(None, description="...")` or `Field(default_value, description="...")`
-
-### Example: Math Tools
-
-```python
 class AddTool(BaseModel):
-    """Use this tool when you found that you need to quickly add two integers."""
+    """Use this tool when you need to add two integers."""
     a: int = Field(..., description="First integer to add")
     b: int = Field(..., description="Second integer to add")
 
 class MultiplyTool(BaseModel):
-    """Use this tool when you found that you need to quickly multiply two integers."""
+    """Use this tool when you need to multiply two integers."""
     a: int = Field(..., description="First integer to multiply")
     b: int = Field(..., description="Second integer to multiply")
 ```
 
-### Usage with parse_json_schema.py
+#### 2. LangChain @tool Decorated Functions
+
+**Important**: `@tool` functions must use `@tool(parse_docstring=True)` and have well-documented docstrings with Args and Returns sections.
 
 ```python
-from langchain_core.utils.function_calling import convert_to_openai_tool
-from custom_langchain_model.helpers.parse_json_schema import parse_json_schema
-from baml_client.type_builder import TypeBuilder
+from langchain.tools import tool
 
-# Convert Pydantic model to OpenAI tool format
-add_schema = convert_to_openai_tool(AddTool)
-multiply_schema = convert_to_openai_tool(MultiplyTool)
-
-# Create BAML type builder
-tb = TypeBuilder()
-
-# Parse each tool
-add_tool_type = parse_json_schema(add_schema, tb)
-multiply_tool_type = parse_json_schema(multiply_schema, tb)
-
-# Create union for multiple tools
-tools_union = tb.list(tb.union([add_tool_type, multiply_tool_type]))
-tb.DynamicSchema.add_property("data", tools_union)
+@tool(parse_docstring=True)
+def count_words(text: str) -> int:
+    """Count the number of words in the provided text.
+    
+    Counts words by splitting on whitespace. Returns the total number of words.
+    
+    Args:
+        text (str): Input text to count words from.
+    
+    Returns:
+        int: Number of words in the input text.
+    """
+    if text is None:
+        return 0
+    words = re.findall(r"\S+", text.strip())
+    return len(words)
 ```
 
-This automatically generates the proper BAML schema with:
-- Action property with `tool_<name>` pattern
-- Proper field types and descriptions
-- Union types for multiple tools
-- Integration with the BAML type system
+### Usage Example
 
-### Advanced Features
+```python
+from custom_langchain_model.helpers.parse_json_schema import convert_to_baml_tool
+from baml_client import b
+from baml_client.types import BamlState, BaseMessage
 
-- **Nested Objects**: Use `Field(..., description="...")` for nested Pydantic models
-- **Enum Types**: Use `Literal` types for enum-like behavior
-- **Default Values**: Include default values in `Field(default_value, description="...")`
-- **Validation**: Pydantic validation rules are preserved in the BAML schema
+# Convert tools to BAML schema
+tb = convert_to_baml_tool(
+    tools=[AddTool, MultiplyTool, count_words],
+    property_name="selected_tool",
+    is_multiple_tools=True
+)
 
-## License
+# Create BAML state
+baml_state = BamlState(
+    messages=[
+        BaseMessage(
+            role='system',
+            content="You are an agent that can help with many tasks. Follow instructions and provide concise, useful responses."
+        ),
+        BaseMessage(
+            role='user',
+            content='I have a pen, i have 3 others, boom, what result would be when i combined them'
+        )
+    ]
+)
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+# Call BAML function
+response = b.ChooseTool(baml_state, {"tb": tb})
+print(f"Selected tool: {response.structure_output}")
+```
 
-If you find this project helpful, please consider:
+**Real Test Output**:
+```
+Selected tool: [{'action': 'tool_AddTool', 'a': 1, 'b': 3}]
+```
 
-⭐ Starring the repository   
-🔗 Sharing it with others who might benefit   
-💬 Contributing improvements or reporting issues
+### BAML Logging (Transparent)
+
+The BAML integration provides transparent logging that shows exactly what's happening under the hood:
+
+```bash
+(ChatBaml) vllm_user@idc-2-97:~/git_repos/ChatBaml$ PYTHONPATH=. uv run python custom_langchain_model/helpers/parse_json_schema.py
+2026-01-25T12:33:40.428 [BAML INFO] Function ChooseTool:
+    Client: ChatBaml (qwen3-vl) - 319ms. StopReason: stop. Tokens(in/out): 289/42
+    ---PROMPT---
+    system: Answer in JSON using this schema:
+    {
+      structure_output: [
+        {
+          // Use this tool when you found that you need to quickly add two integers.
+          action: "tool_AddTool",
+          // First integer to add
+          a: int,
+          // Second integer to add
+          b: int,
+        } or {
+          // Use this tool when you found that you need to quickly multiply two integers.
+          action: "tool_MultiplyTool",
+          // First integer to multiply
+          a: int,
+          // Second integer to multiply
+          b: int,
+        } or {
+          // Count the number of words in the provided text. Counts words by splitting on whitespace. Returns the total number of words.
+          action: "tool_count_words",
+          // Input text to count words from.
+          text: string,
+        } or {
+          // Use this tool when you want to send a natural language response shown to the user. Write naturally, kindly, concisely when possible.
+          action: "reply_to_user",
+          message: {
+            role: "assistant",
+            content: string,
+          },
+        }
+      ],
+    }
+              
+    You are an agent that can help with many tasks. Follow instructions and provide concise, useful responses.
+    user: I have a pen, i have 3 others, boom, what result would be when i combined them
+    
+    ---LLM REPLY---
+    ```json
+    {
+      "structure_output": [
+        {
+          "action": "tool_AddTool",
+          "a": 1,
+          "b": 3
+        }
+      ]
+    }
+    ```
+    ---Parsed Response (class DynamicSchema)---
+    {
+      "structure_output": [
+        {
+          "action": "tool_AddTool",
+          "a": 1,
+          "b": 3
+        }
+      ]
+    }
+response:
+structure_output=[{'action': 'tool_AddTool', 'a': 1, 'b': 3}]
+```
+
+This logging shows:
+- **Function Call**: Which BAML function was called (`ChooseTool`)
+- **Client Info**: Model used (`qwen3-vl`) with performance metrics
+- **Complete Prompt**: The exact JSON schema and user input sent to the LLM
+- **LLM Response**: The raw JSON response from the model
+- **Parsed Output**: How BAML parses the response back to the application
+
+
+## Current Development Status
+
+### ✅ Working Components
+
+- **Tool Conversion System**: `convert_to_baml_tool` successfully converts Pydantic models and LangChain tools to BAML schemas
+- **BAML Integration**: Basic BAML function calls work correctly
+- **Environment Configuration**: Environment-based setup with secure credential management
+- **Testing Framework**: Comprehensive unit tests for tool conversion
+
+### ⚠️ In Progress
+
+- **ChatBaml Validation**: `chat_baml.py` integration with BAML functions is currently being validated
+- **Advanced Features**: Streaming responses, multiple tool selection patterns
+- **Performance Optimization**: Benchmarking and optimization for production use
+
+### 📋 Recent Test Results
+
+The `convert_to_baml_tool` functionality has been successfully tested:
+
+```
+✅ Tool conversion working: Pydantic models → BAML schemas
+✅ BAML function calls successful: ChooseTool returned valid tool selection
+✅ Schema parsing correct: Response properly parsed to DynamicSchema
+✅ Integration functional: End-to-end tool selection and execution
+```
+
+## Requirements
+
+- Python >= 3.13
+- Key dependencies:
+  - `baml-py>=0.218.0`
+  - `langchain>=1.0.0`
+  - `langgraph>=1.0.0`
+  - `pydantic>=2.12.3`
+  - `pydantic-settings>=2.11.0`
+
+## Development
+
+### Running Tests
+
+```bash
+# Run all tests
+pytest
+
+# Run specific test file
+pytest test/unit/test_convert_to_baml_tool.py
+
+# Run with coverage
+pytest --cov=custom_langchain_model
+```
+
+### BAML Code Generation
+
+```bash
+# Generate BAML client code
+baml generate
+
+# Regenerate after schema changes
+baml generate --force
+```
+
+### Testing convert_to_baml_tool
+
+```bash
+# Run the conversion test script
+PYTHONPATH=. uv run python custom_langchain_model/helpers/parse_json_schema.py
+```

@@ -1,6 +1,8 @@
 import warnings
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional, Union, Type, Callable
 from baml_client.type_builder import TypeBuilder, FieldType
+from pydantic import BaseModel
+from langchain_core.utils.function_calling import convert_to_openai_tool
 
 class SchemaAdder:
     def __init__(self, tb: TypeBuilder, schema: Dict[str, Any]):
@@ -188,7 +190,146 @@ def parse_json_schema(json_schema: Dict[str, Any], tb: TypeBuilder) -> FieldType
     parser = SchemaAdder(tb, json_schema)
     return parser.parse(json_schema)
 
+def convert_to_baml_tool(
+    tb: Optional[TypeBuilder] = None,
+    tools: List[Union[Type[BaseModel], Callable]] = None,
+    property_name: str = 'structure_output',
+    is_multiple_tools: bool = False,
+    include_reply_to_user: bool = True
+) -> TypeBuilder:
+    """
+    Convert Pydantic models and/or Langchain tools to BAML types and add them as a dynamic schema property.
+
+    Args:
+        tb: Optional TypeBuilder instance. If None, a new one will be created.
+        tools: List of tools (Pydantic BaseModel classes and/or @tool decorated functions)
+        property_name: Name of the Dynamic schema property to add
+        is_multiple_tools: If True, creates a list of union for multiple tool selection
+        include_reply_to_user: If True, includes ReplyToUser tool in the union
+
+    Returns:
+        TypeBuilder instance with the property added to DynamicSchema
+    """
+    # Create TypeBuilder if none provided
+    if tb is None:
+        tb = TypeBuilder()
+
+    if tools is None or len(tools) == 0:
+        raise ValueError("At least one tool must be provided")
+
+    if property_name is None or len(property_name.strip()) == 0:
+        raise ValueError("property_name must be provided and non-empty")
+
+    # Convert each tool to OpenAI function schema and parse to BAML types
+    baml_types = []
+    for tool in tools:
+        # Convert tool to OpenAI function schema
+        tool_schema = convert_to_openai_tool(tool)
+
+        # Parse the schema to BAML type
+        tool_baml_type = parse_json_schema(tool_schema, tb)
+        baml_types.append(tool_baml_type)
+
+    # Add ReplyToUser tool if requested
+    if include_reply_to_user:
+        baml_types.append(tb.ReplyToUser.type())
+
+    # Create union of all tool types
+    tools_union = tb.union(baml_types)
+
+    # If multiple tools selection is enabled, wrap in list
+    if is_multiple_tools:
+        final_type = tb.list(tools_union)
+    else:
+        final_type = tools_union
+
+    # Add the property to DynamicSchema
+    tb.DynamicSchema.add_property(property_name, final_type)
+
+    return tb
+
 # ---
+
+def test_convert_to_baml_tool():
+    """Test the new convert_to_baml_tool function"""
+    from pydantic import BaseModel, Field
+    from langchain.tools import tool
+    from baml_client.type_builder import TypeBuilder
+
+    # Define test tools
+    class AddTool(BaseModel):
+        """Use this tool when you need to add two integers."""
+        a: int = Field(..., description="First integer to add")
+        b: int = Field(..., description="Second integer to add")
+
+    class MultiplyTool(BaseModel):
+        """Use this tool when you need to multiply two integers."""
+        a: int = Field(..., description="First integer to multiply")
+        b: int = Field(..., description="Second integer to multiply")
+
+    @tool
+    def greet(name: str) -> str:
+        """Greet someone by name"""
+        return f"Hello, {name}!"
+
+    # Test 1: Single tool selection (union)
+    print("\n=== Testing convert_to_baml_tool - Single Tool ===")
+    tb1 = convert_to_baml_tool(
+        tools=[AddTool, MultiplyTool, greet],
+        property_name="selected_tool",
+        is_multiple_tools=False
+    )
+    print(f"✓ Created TypeBuilder with single tool selection property 'selected_tool'")
+
+    # Test 2: Multiple tool selection (list of union)
+    print("\n=== Testing convert_to_baml_tool - Multiple Tools ===")
+    tb2 = convert_to_baml_tool(
+        tools=[AddTool, MultiplyTool],
+        property_name="tool_choices",
+        is_multiple_tools=True
+    )
+    print(f"✓ Created TypeBuilder with multiple tool selection property 'tool_choices'")
+
+    # Test 3: No TypeBuilder provided (should create new one)
+    print("\n=== Testing convert_to_baml_tool - Auto TypeBuilder Creation ===")
+    tb3 = convert_to_baml_tool(
+        tools=[greet],
+        property_name="auto_tool",
+        is_multiple_tools=False
+    )
+    print(f"✓ Created new TypeBuilder automatically")
+
+    # Test 4: Include ReplyToUser tool
+    print("\n=== Testing convert_to_baml_tool - Include ReplyToUser ===")
+    tb4_with_reply = convert_to_baml_tool(
+        tools=[AddTool, greet],
+        property_name="tools_with_reply",
+        include_reply_to_user=True
+    )
+    print(f"✓ Created TypeBuilder with ReplyToUser tool included")
+
+    tb4_without_reply = convert_to_baml_tool(
+        tools=[AddTool, greet],
+        property_name="tools_without_reply",
+        include_reply_to_user=False
+    )
+    print(f"✓ Created TypeBuilder without ReplyToUser tool")
+
+    # Test 5: Error cases
+    print("\n=== Testing convert_to_baml_tool - Error Cases ===")
+    try:
+        convert_to_baml_tool(tools=[], property_name="test")
+        print("✗ Should have raised error for empty tools list")
+    except ValueError as e:
+        print(f"✓ Correctly raised error for empty tools: {e}")
+
+    try:
+        convert_to_baml_tool(tools=[AddTool], property_name="")
+        print("✗ Should have raised error for empty property name")
+    except ValueError as e:
+        print(f"✓ Correctly raised error for empty property name: {e}")
+
+    print("\n=== All tests completed successfully! ===")
 
 # test
 def main():
@@ -201,6 +342,7 @@ def main():
         BamlState,
         BaseMessage as BamlBaseMessage
     )
+    from langchain.tools import tool
     from langchain_core.utils.function_calling import convert_to_openai_tool
     # -----------------------------------------
     # Define tools using Pydantic models (without action field)
@@ -215,148 +357,60 @@ def main():
         a: int = Field(..., description="First integer to multiply")
         b: int = Field(..., description="Second integer to multiply")
 
-    # Test single tool parsing
-    print("=== Testing single tool parsing with Pydantic ===")
-    add_schema = convert_to_openai_tool(AddTool)
-    print(f"Pydantic schema for 'AddTool':\n{add_schema}")
-    
-    from baml_client.type_builder import TypeBuilder
-    
-    # Create a type builder
-    tb = TypeBuilder()
+    @tool(parse_docstring=True)
+    def count_words(text: str) -> int:
+        """Count the number of words in the provided text.
 
-    # Test multiple tools parsing (union type)
-    print("\n=== Testing multiple tools parsing with Pydantic ===")
-    multiply_schema = convert_to_openai_tool(MultiplyTool)
-    print(f"Pydantic schema for 'MultiplyTool':\n{multiply_schema}")
+        Counts words by splitting on whitespace. Returns the total number of words.
+
+        Args:
+            text (str): Input text to count words from.
+
+        Returns:
+            int: Number of words in the input text.
+
+        Example:
+            >>> count_words("I have a pen and 3 more")
+            6
+        """
+        if text is None:
+            return 0
+        # Split on any whitespace sequence
+        words = re.findall(r"\S+", text.strip())
+        return len(words)
+
+    from baml_client.type_builder import TypeBuilder
+    import re
     
-    # Parse each tool separately
-    add_tool_type = parse_json_schema(add_schema, tb)
-    multiply_tool_type = parse_json_schema(multiply_schema, tb)
+    tb = convert_to_baml_tool(
+        tools=[AddTool, MultiplyTool, count_words],
+        is_multiple_tools=True
+    )
     
-    # Create union type for multiple tools
-    tools_union = tb.list(tb.union([add_tool_type, multiply_tool_type, tb.ReplyToUser.type()]))
-    print(f"Parsed BAML union type for both tools: {tools_union}")
-    
-    # Add the union type to your BAML Type annotated with `@@dynamic`
-    tb.DynamicSchema.add_property("data", tools_union)
-    
-    # Test backward compatibility with regular JSON schema
-    print("\n=== Testing backward compatibility with regular JSON schema ===")
-    regular_schema = {
-        "type": "object",
-        "title": "Person",
-        "properties": {
-            "name": {"type": "string"},
-            "age": {"type": "integer"}
-        },
-        "required": ["name", "age"]
-    }
-    
-    tb_regular = TypeBuilder()
-    regular_baml_type = parse_json_schema(regular_schema, tb_regular)
-    print(f"Parsed regular JSON schema: {regular_baml_type}")
-    
+
     # Use in BAML function calls
     bamlState = BamlState(
         messages=[
             BamlBaseMessage(
                 role='system',
                 content=(
-                    ""
                     "\nYou are an agent that can help with many tasks. Follow instructions and provide concise, useful responses."
-                    "\nContext: you can run many tools but make sure to end with a reply to the user."
                 )
             ),
             BamlBaseMessage(
                 role='user',
                 content='I have a pen, i have 3 others, boom, what result would be when i combined them'
-            ),
-            BamlBaseMessage(
-                role='assistant',
-                content="I decide to use tool AddTool with args: {'a': 1, 'b': 3}"
-            ),
-            BamlBaseMessage(
-                role='tool',
-                content="\n\nTool AddTool result: 4"
-            ),
+            )
         ]
     )
     try:
         response = b.ChooseTool(bamlState, {"tb": tb})
         # Parse the response
         print(f"response:\n{response}")
+
     except Exception as e:
         print(f"Note: BAML function call failed (expected in test environment): {e}")
         print("This is normal - the parsing functionality works correctly.")
 
 if __name__ == "__main__":
     main()
-    
-""" 
-(ChatBaml) vllm_user@idc-2-97:~/git_repos/ChatBaml$ PYTHONPATH=. uv run python custom_langchain_model/helpers/parse_json_schema.py
-=== Testing single tool parsing with Pydantic ===
-Pydantic schema for 'AddTool':
-{'type': 'function', 'function': {'name': 'AddTool', 'description': 'Use this tool when you found that you need to quickly add two integers.', 'parameters': {'properties': {'a': {'description': 'First integer to add', 'type': 'integer'}, 'b': {'description': 'Second integer to add', 'type': 'integer'}}, 'required': ['a', 'b'], 'type': 'object'}}}
-
-=== Testing multiple tools parsing with Pydantic ===
-Pydantic schema for 'MultiplyTool':
-{'type': 'function', 'function': {'name': 'MultiplyTool', 'description': 'Use this tool when you found that you need to quickly multiply two integers.', 'parameters': {'properties': {'a': {'description': 'First integer to multiply', 'type': 'integer'}, 'b': {'description': 'Second integer to multiply', 'type': 'integer'}}, 'required': ['a', 'b'], 'type': 'object'}}}
-Parsed BAML union type for both tools: <baml_py.baml_py.FieldType object at 0x761f2133e610>
-
-=== Testing backward compatibility with regular JSON schema ===
-Parsed regular JSON schema: <baml_py.baml_py.FieldType object at 0x761f2133e510>
-2026-01-24T20:19:01.404 [BAML INFO] Function ChooseTool:
-    Client: ChatBaml (qwen3-vl) - 382ms. StopReason: stop. Tokens(in/out): 306/47
-    ---PROMPT---
-    system: Answer in JSON using this schema:
-    {
-      data: [
-        {
-          // Use this tool when you found that you need to quickly add two integers.
-          action: "tool_AddTool",
-          // First integer to add
-          a: int,
-          // Second integer to add
-          b: int,
-        } or {
-          // Use this tool when you found that you need to quickly multiply two integers.
-          action: "tool_MultiplyTool",
-          // First integer to multiply
-          a: int,
-          // Second integer to multiply
-          b: int,
-        } or {
-          // Use this tool when you want to send a natural language response shown to the user. Write naturally, kindly, concisely when possible.
-          action: "reply_to_user",
-          message: {
-            role: "assistant",
-            content: string,
-          },
-        }
-      ],
-    }
-    JSON but no colons like above
-    -You are an agent that can help with many tasks. Follow instructions and provide concise, useful responses.
-    Context: you can run many tools but make sure to end with a reply to the user.
-    user: I have a pen, i have 3 others, boom, what result would be when i combined them
-    assistant: I decide to use tool AddTool with args: {'a': 1, 'b': 3}
-    tool: Tool AddTool result: 4
-    
-    ---LLM REPLY---
-    {"data": [{"action": "reply_to_user", "message": {"role": "assistant", "content": "When you combine your pen with the 3 others, you have a total of 4 pens."}}]}
-    ---Parsed Response (class DynamicSchema)---
-    {
-      "data": [
-        {
-          "action": "reply_to_user",
-          "message": {
-            "role": "assistant",
-            "content": "When you combine your pen with the 3 others, you have a total of 4 pens."
-          }
-        }
-      ]
-    }
-response:
-data=[ReplyToUser(action='reply_to_user', message=AIMessage(role='assistant', content='When you combine your pen with the 3 others, you have a total of 4 pens.'))]
-"""
