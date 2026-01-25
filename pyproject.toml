@@ -14,5 +14,6 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "langchain-openai>=1.1.7",
     "pytest>=9.0.2",
 ]

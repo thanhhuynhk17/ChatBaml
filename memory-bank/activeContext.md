@@ -121,13 +121,23 @@ Selected tool: [{'action': 'tool_AddTool', 'a': 1, 'b': 3}]
 
 ### 1. ChatBaml Validation (High Priority)
 **Task**: Validate `chat_baml.py` integration with BAML functions
-**Status**: In Progress
+**Status**: In Progress (60% complete)
 **Next Steps**:
-- [ ] Test basic BAML function calls through ChatBaml.b property
-- [ ] Validate tool binding with `bind_tools()` method
+- [x] ✅ Implement `_chat_completion_request()` method - COMPLETED
+- [x] ✅ Test basic BAML function calls through ChatBaml.b property - COMPLETED
+- [x] ✅ Validate tool conversion with `convert_to_baml_tool()` - COMPLETED
+- [x] ✅ Create comprehensive pytest tests - COMPLETED
 - [ ] Test integration with LangGraph workflows
+- [ ] Validate tool binding with `bind_tools()` method
 - [ ] Verify error handling and logging
 - [ ] Performance testing with real BAML functions
+
+**Recent Progress**:
+- Successfully implemented `_chat_completion_request()` with full BAML integration
+- Created and tested message conversion helpers (`_convert_to_baml_messages()`)
+- Implemented tool conversion using existing `convert_to_baml_tool()` utility
+- Created comprehensive pytest test suite (4 tests, all passing)
+- Verified end-to-end functionality with real BAML function calls
 
 **Blockers**: None identified
 **Dependencies**: BAML client generation, test environment setup

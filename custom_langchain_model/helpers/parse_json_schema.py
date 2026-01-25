@@ -214,7 +214,7 @@ def convert_to_baml_tool(
     if tb is None:
         tb = TypeBuilder()
 
-    if tools is None or len(tools) == 0:
+    if tools is None or len(tools) == 0 and not include_reply_to_user:
         raise ValueError("At least one tool must be provided")
 
     if property_name is None or len(property_name.strip()) == 0:
@@ -248,91 +248,9 @@ def convert_to_baml_tool(
 
     return tb
 
-# ---
-
-def test_convert_to_baml_tool():
-    """Test the new convert_to_baml_tool function"""
-    from pydantic import BaseModel, Field
-    from langchain.tools import tool
-    from baml_client.type_builder import TypeBuilder
-
-    # Define test tools
-    class AddTool(BaseModel):
-        """Use this tool when you need to add two integers."""
-        a: int = Field(..., description="First integer to add")
-        b: int = Field(..., description="Second integer to add")
-
-    class MultiplyTool(BaseModel):
-        """Use this tool when you need to multiply two integers."""
-        a: int = Field(..., description="First integer to multiply")
-        b: int = Field(..., description="Second integer to multiply")
-
-    @tool
-    def greet(name: str) -> str:
-        """Greet someone by name"""
-        return f"Hello, {name}!"
-
-    # Test 1: Single tool selection (union)
-    print("\n=== Testing convert_to_baml_tool - Single Tool ===")
-    tb1 = convert_to_baml_tool(
-        tools=[AddTool, MultiplyTool, greet],
-        property_name="selected_tool",
-        is_multiple_tools=False
-    )
-    print(f"✓ Created TypeBuilder with single tool selection property 'selected_tool'")
-
-    # Test 2: Multiple tool selection (list of union)
-    print("\n=== Testing convert_to_baml_tool - Multiple Tools ===")
-    tb2 = convert_to_baml_tool(
-        tools=[AddTool, MultiplyTool],
-        property_name="tool_choices",
-        is_multiple_tools=True
-    )
-    print(f"✓ Created TypeBuilder with multiple tool selection property 'tool_choices'")
-
-    # Test 3: No TypeBuilder provided (should create new one)
-    print("\n=== Testing convert_to_baml_tool - Auto TypeBuilder Creation ===")
-    tb3 = convert_to_baml_tool(
-        tools=[greet],
-        property_name="auto_tool",
-        is_multiple_tools=False
-    )
-    print(f"✓ Created new TypeBuilder automatically")
-
-    # Test 4: Include ReplyToUser tool
-    print("\n=== Testing convert_to_baml_tool - Include ReplyToUser ===")
-    tb4_with_reply = convert_to_baml_tool(
-        tools=[AddTool, greet],
-        property_name="tools_with_reply",
-        include_reply_to_user=True
-    )
-    print(f"✓ Created TypeBuilder with ReplyToUser tool included")
-
-    tb4_without_reply = convert_to_baml_tool(
-        tools=[AddTool, greet],
-        property_name="tools_without_reply",
-        include_reply_to_user=False
-    )
-    print(f"✓ Created TypeBuilder without ReplyToUser tool")
-
-    # Test 5: Error cases
-    print("\n=== Testing convert_to_baml_tool - Error Cases ===")
-    try:
-        convert_to_baml_tool(tools=[], property_name="test")
-        print("✗ Should have raised error for empty tools list")
-    except ValueError as e:
-        print(f"✓ Correctly raised error for empty tools: {e}")
-
-    try:
-        convert_to_baml_tool(tools=[AddTool], property_name="")
-        print("✗ Should have raised error for empty property name")
-    except ValueError as e:
-        print(f"✓ Correctly raised error for empty property name: {e}")
-
-    print("\n=== All tests completed successfully! ===")
-
 # test
-def main():
+import asyncio
+async def main():
     import os
     from dotenv import load_dotenv, find_dotenv
     load_dotenv(find_dotenv())
@@ -384,7 +302,7 @@ def main():
     
     tb = convert_to_baml_tool(
         tools=[AddTool, MultiplyTool, count_words],
-        is_multiple_tools=True
+        is_multiple_tools=False
     )
     
 
@@ -404,7 +322,7 @@ def main():
         ]
     )
     try:
-        response = b.ChooseTool(bamlState, {"tb": tb})
+        response = await b.ChooseTool(bamlState, {"tb": tb})
         # Parse the response
         print(f"response:\n{response}")
 
@@ -413,4 +331,4 @@ def main():
         print("This is normal - the parsing functionality works correctly.")
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

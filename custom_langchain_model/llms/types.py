@@ -10,3 +10,10 @@ Provider = Literal[
     "fallback",
     "round-robin",
 ]
+
+Role = Literal[
+    "system",
+    "user",
+    "assistant",
+    "tool"
+]

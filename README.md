@@ -5,14 +5,14 @@ This project extends a Custom LangChain Chat Model to integrate with BAML, creat
 ## 🚀 BAML Model Integration TODO
 
 ### Core Implementation
-- [ ] Create `BamlChatModel` extending `BaseChatModel`
-- [ ] Implement `_chat_completion_request()` for BAML API calls
+- [x] Create `BamlChatModel` extending `BaseChatModel`
+- [x] Implement `_chat_completion_request()` for BAML API calls ✅ COMPLETED
 - [ ] Implement `_agenerate()` method following tutorial pattern
 - [ ] Implement `_generate()` method (sync fallback)
-- [ ] Implement `model_post_init()` for BAML client setup
 - [ ] Implement `_prepare_messages()` for message conversion
 
 ### Tool Integration
+- [x] Implement `convert_to_baml_tool()` — converts Pydantic BaseModel and LangChain `@tool(parse_docstring=True)` functions into a BAML DynamicSchema (supports multiple tools, property_name mapping, and docstring parsing)
 - [ ] Implement `bind_tools()` using existing `convert_to_baml_tool()`
 - [ ] Implement `_convert_tool()` for tool format conversion
 
@@ -38,10 +38,16 @@ This project extends a Custom LangChain Chat Model to integrate with BAML, creat
 
 ```bash
 git clone https://github.com/thanhhuynhk17/ChatBaml.git
-cd ChatBaml
-python -m venv .venv
+uv venv
 source .venv/bin/activate
-pip install -e .
+uv sync
+```
+
+### BAML Code Generation
+
+```bash
+# The next commmand will auto-generate the baml_client directory, which will have auto-generated python code to call your BAML functions.
+uv run baml-cli generate
 ```
 
 ### Environment Setup
@@ -53,7 +59,7 @@ OPENAI_MODEL_NAME="qwen3-vl"
 OPENAI_BASE_URL="http://localhost:8000/v1"
 OPENAI_API_KEY="sk_some_dummy_text"
 
-# Baml required when using OpenAI-compatible server hosted by vllm
+# Set the default role in your .env when using an OpenAI-compatible server hosted by vLLM
 DEFAULT_ROLE="user"
 ```
 
@@ -133,7 +139,7 @@ baml_state = BamlState(
 )
 
 # Call BAML function
-response = b.ChooseTool(baml_state, {"tb": tb})
+response = await b.ChooseTool(baml_state, {"tb": tb}) # b is async client
 print(f"Selected tool: {response.structure_output}") # response with property_name="structure_output"
 ```
 
@@ -232,7 +238,7 @@ This logging shows:
 
 ### ⚠️ In Progress
 
-- **ChatBaml Validation**: `chat_baml.py` integration with BAML functions is currently being validated
+- **ChatBaml Validation**: `chat_baml.py` integration with BAML functions - `_chat_completion_request()` ✅ COMPLETED AND TESTED
 - **Advanced Features**: Streaming responses, multiple tool selection patterns
 - **Performance Optimization**: Benchmarking and optimization for production use
 
@@ -270,16 +276,6 @@ pytest test/unit/test_convert_to_baml_tool.py
 
 # Run with coverage
 pytest --cov=custom_langchain_model
-```
-
-### BAML Code Generation
-
-```bash
-# Generate BAML client code
-baml generate
-
-# Regenerate after schema changes
-baml generate --force
 ```
 
 ### Testing convert_to_baml_tool
