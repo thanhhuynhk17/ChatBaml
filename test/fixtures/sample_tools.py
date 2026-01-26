@@ -8,8 +8,8 @@ from langchain.tools import tool
 # Pydantic BaseModel tools
 class CalculatorAdd(BaseModel):
     """Add two numbers together"""
-    x: float = Field(..., description="First number")
-    y: float = Field(..., description="Second number")
+    x: int = Field(..., description="First number")
+    y: int = Field(..., description="Second number")
 
 class CalculatorSubtract(BaseModel):
     """Subtract second number from first"""

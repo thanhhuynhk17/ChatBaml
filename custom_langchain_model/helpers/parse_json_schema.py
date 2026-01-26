@@ -85,7 +85,7 @@ class SchemaAdder:
         function_data = json_schema["function"]
         
         tool_name = function_data["name"]
-        class_name = f"tool_{tool_name}"
+        class_name = f"{tool_name}"
         
         # Check if class already exists in cache
         if class_name in self._class_cache:
@@ -93,11 +93,15 @@ class SchemaAdder:
         
         # Create the tool class
         new_cls = self.tb.add_class(class_name)
-        
-        # Add action property with tool_<name> pattern
+        action_input_cls = self.tb.add_class(f"{class_name}_arguments")
+        # Add action property with <tool_name> value
         action_property = new_cls.add_property(
-            "action", 
-            self.tb.literal_string(f"tool_{tool_name}")
+            "name", 
+            self.tb.literal_string(f"{tool_name}")
+        )
+        action_input_property = new_cls.add_property(
+            "arguments",
+            type=action_input_cls.type()
         )
         
         # Add tool description as action property description
@@ -132,7 +136,7 @@ class SchemaAdder:
                             if default_value is None:
                                 field_type = field_type.optional()
                         
-                        property_ = new_cls.add_property(field_name, field_type)
+                        property_ = action_input_cls.add_property(field_name, field_type)
                         if field_description := field_schema.get("description"):
                             assert isinstance(field_description, str)
                             if default_value is not None:

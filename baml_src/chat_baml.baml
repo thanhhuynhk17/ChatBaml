@@ -16,20 +16,20 @@ class AIMessage {
 template_string RenderMessages(messages: BaseMessage[]) ##"
   {% for m in messages %}
     {% if loop.first %}
-        {% if m.role=="system" %}
-            {{ _.role( m.role ) }}
-            {{ ctx.output_format}}
-            {{ m.content }}
-        {% else %}
-            {{ _.role( "system" ) }}
-            {{ ctx.output_format}}
-            {{ _.role( m.role ) }}
-            {{ m.content }}
-        {% endif %}
-    {% else %}
-        {# normal render #}
+      {% if m.role=="system" %}
         {{ _.role( m.role ) }}
         {{ m.content }}
+        {{ ctx.output_format(prefix="\nAnswer in JSON using this schema:\n") }}
+      {% else %}
+        {{ _.role( "system" ) }}
+        {{ ctx.output_format}}
+        {{ _.role( m.role ) }}
+        {{ m.content }}
+      {% endif %}
+    {% else %}
+      {# normal render #}
+      {{ _.role( m.role ) }}
+      {{ m.content }}
     {% endif %}
     
   {% endfor %}
@@ -37,12 +37,11 @@ template_string RenderMessages(messages: BaseMessage[]) ##"
 
 
 // === Tool Definitions ===
-
 class ReplyToUser {
-  action "reply_to_user" @description(#"
-    Use this tool when you want to send a natural language response shown to the user. Write naturally, kindly, concisely when possible.
+  name "reply_to_user" @description(#"
+    Use this tool when you want to send a natural language response shown to the user.
   "#)
-  message AIMessage @stream.with_state
+  arguments AIMessage @stream.with_state
 }
 
 // The state of the conversation that will be sent

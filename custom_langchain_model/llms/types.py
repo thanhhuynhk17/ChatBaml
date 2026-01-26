@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Any
 
 Provider = Literal[
     "openai",
@@ -17,3 +17,12 @@ Role = Literal[
     "assistant",
     "tool"
 ]
+
+class BamlAbortError(Exception):
+    """Error raised when a BAML operation is aborted"""
+    
+    def __init__(self, message: str, reason: Any = None, detailed_message: str = ''):
+        super().__init__(message)
+        self.reason = reason
+        self.detailed_message = detailed_message
+        self.name = 'BamlAbortError'

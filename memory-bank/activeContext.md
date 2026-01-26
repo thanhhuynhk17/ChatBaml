@@ -117,27 +117,61 @@ The TODO list represents the current development focus and should be consulted f
 Selected tool: [{'action': 'tool_AddTool', 'a': 1, 'b': 3}]
 ```
 
+### 7. End-to-End Testing Success
+**Date**: January 26, 2026  
+**Impact**: Comprehensive validation of BAML integration
+
+**Test Execution**: Successfully ran `PYTHONPATH=. uv run python main.py`
+
+**Real Test Results**:
+- **User Input**: "What's the sum of 1 and 91, and the product of 27 and 9?"
+- **BAML Tool Selection**: 
+  1. First call: `add` tool with arguments `{"a": 1, "b": 91}`
+  2. Second call: `multiply` tool with arguments `{"x": 27, "y": 9}`
+  3. Final response: `reply_to_user` with natural language answer
+- **Performance Metrics**:
+  - First call: 347ms, 167 input tokens, 44 output tokens
+  - Second call: 182ms, 205 input tokens, 23 output tokens
+  - Third call: 379ms, 244 input tokens, 53 output tokens
+- **Final Response**: "The sum of 1 and 91 is 92, and the product of 27 and 9 is 243."
+
+**Validation Status**: ✅ Complete - Full end-to-end functionality confirmed
+
+**Key Insights**:
+- Multi-step reasoning works correctly
+- Automatic tool selection is functional
+- Performance is excellent (182-379ms per call)
+- Token efficiency is good (23-53 output tokens)
+- BAML logging provides transparent visibility
+
 ## Current Development Tasks
 
 ### 1. ChatBaml Validation (High Priority)
 **Task**: Validate `chat_baml.py` integration with BAML functions
-**Status**: In Progress (60% complete)
+**Status**: In Progress (80% complete)
 **Next Steps**:
 - [x] ✅ Implement `_chat_completion_request()` method - COMPLETED
 - [x] ✅ Test basic BAML function calls through ChatBaml.b property - COMPLETED
 - [x] ✅ Validate tool conversion with `convert_to_baml_tool()` - COMPLETED
 - [x] ✅ Create comprehensive pytest tests - COMPLETED
+- [x] ✅ Implement `_agenerate()` async method - COMPLETED
+- [x] ✅ Implement `_astream()` async streaming method - COMPLETED
+- [x] ✅ Implement `bind_tools()` method - COMPLETED
 - [ ] Test integration with LangGraph workflows
-- [ ] Validate tool binding with `bind_tools()` method
 - [ ] Verify error handling and logging
 - [ ] Performance testing with real BAML functions
 
 **Recent Progress**:
-- Successfully implemented `_chat_completion_request()` with full BAML integration
-- Created and tested message conversion helpers (`_convert_to_baml_messages()`)
-- Implemented tool conversion using existing `convert_to_baml_tool()` utility
-- Created comprehensive pytest test suite (4 tests, all passing)
-- Verified end-to-end functionality with real BAML function calls
+- Successfully implemented `_agenerate()` and `_astream()` async methods
+- Created comprehensive async BAML integration with proper streaming support
+- Implemented tool binding functionality with `bind_tools()` method
+- Configured BAML generators for async-only mode due to BAML limitations
+- Added proper error handling for unimplemented synchronous methods
+
+**Implementation Notes**:
+- **Async-Only Architecture**: Due to BAML's limitation of supporting only async OR sync at a time, the implementation uses async-only approach
+- **Synchronous Methods**: `_generate()` and `_stream()` raise NotImplementedError with clear guidance to use async alternatives
+- **BAML Configuration**: `generators.baml` set to `default_client_mode async` to align with implementation
 
 **Blockers**: None identified
 **Dependencies**: BAML client generation, test environment setup

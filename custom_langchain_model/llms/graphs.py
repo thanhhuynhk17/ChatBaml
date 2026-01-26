@@ -5,10 +5,12 @@ from langgraph.prebuilt import ToolNode
 from langchain_core.messages import SystemMessage, AIMessage
 from custom_langchain_model.llms.contexts import GeneralChatContext
 from custom_langchain_model.llms.states import GeneralChatState
-from custom_langchain_model.llms.models import AzureOpenAICompatibleChat
 from custom_langchain_model.llms.tools import simple_tools
+from custom_langchain_model.llms.chat_baml import ChatBaml
 
-
+import os
+from dotenv import load_dotenv, find_dotenv
+load_dotenv(find_dotenv())
 
 def make_general_chat_with_tools_graph() -> StateGraph:
     """
@@ -23,9 +25,10 @@ def make_general_chat_with_tools_graph() -> StateGraph:
         context = runtime.context        
 
         model = (
-            AzureOpenAICompatibleChat(
-                engine=context.engine, 
-                conversation_id=context.conversation_id, 
+            ChatBaml(
+                base_url=os.getenv("OPENAI_BASE_URL"),
+                api_key=os.getenv("OPENAI_API_KEY"),
+                model=os.getenv("OPENAI_MODEL_NAME")
             )
             .bind_tools(simple_tools)            
         )       
@@ -37,7 +40,8 @@ def make_general_chat_with_tools_graph() -> StateGraph:
         # it's available to the model
         ai = await model.ainvoke(
             [sys] + non_system,
-            context=context 
+            context=context,
+            stream=False
         )
         return {"messages": [ai]}
    

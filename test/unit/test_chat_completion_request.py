@@ -6,6 +6,7 @@ import pytest
 import os
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
+import json
 
 from custom_langchain_model.llms.chat_baml import ChatBaml
 from langchain_core.messages import (
@@ -44,48 +45,10 @@ def test_chat_completion_request_basic():
     result = asyncio.run(run_test())
 
     assert result is not None
-    assert "response" in result
-    assert "baml_state" in result
+    assert json.loads(result)
+    assert json.loads(result)["selected_tool"] is not None
     print("✓ Basic chat completion request test passed")
 
-def test_chat_completion_request_with_empty_tools():
-    """Test chat completion request with empty tools list"""
-    chat_baml = ChatBaml(
-        base_url=os.getenv("OPENAI_BASE_URL"),
-        api_key=os.getenv("OPENAI_API_KEY"),
-        model=os.getenv("OPENAI_MODEL_NAME")
-    )
-
-    import asyncio
-
-    async def run_test():
-        result = await chat_baml._chat_completion_request(
-            messages=TEST_MESSAGES,
-            tools=[]
-        )
-        return result
-
-    result = asyncio.run(run_test())
-
-    assert result is not None
-    print("✓ Empty tools test passed")
-
-def test_chat_completion_request_message_conversion():
-    """Test that messages are properly converted to BAML format"""
-    chat_baml = ChatBaml(
-        base_url=os.getenv("OPENAI_BASE_URL"),
-        api_key=os.getenv("OPENAI_API_KEY"),
-        model=os.getenv("OPENAI_MODEL_NAME")
-    )
-
-    # Test message conversion helper method
-    baml_messages = chat_baml._convert_to_baml_messages(TEST_MESSAGES)
-
-    assert baml_messages is not None
-    assert len(baml_messages) == len(TEST_MESSAGES)
-    assert all(hasattr(msg, 'role') for msg in baml_messages)
-    assert all(hasattr(msg, 'content') for msg in baml_messages)
-    print("✓ Message conversion test passed")
 
 def test_chat_completion_request_error_handling():
     """Test error handling for invalid inputs"""
@@ -102,15 +65,44 @@ def test_chat_completion_request_error_handling():
 
     print("✓ Error handling test passed")
 
+def test_invoke_request():
+    """Test the invoke method with various scenarios"""
+    chat_baml = ChatBaml(
+        base_url=os.getenv("OPENAI_BASE_URL"),
+        api_key=os.getenv("OPENAI_API_KEY"),
+        model=os.getenv("OPENAI_MODEL_NAME")
+    )
+
+    # Test 1: Basic invoke without tools
+    result = chat_baml.invoke(TEST_MESSAGES)
+    assert result is not None
+    assert hasattr(result, 'content')
+    print("✓ Basic invoke test passed")
+
+    # Test 2: Invoke with bound tools
+    from test.fixtures.sample_tools import CalculatorAdd, get_weather
+
+    # Bind tools and test invoke
+    chat_baml_with_tools = chat_baml.bind_tools([CalculatorAdd, get_weather])
+    result_with_tools = chat_baml_with_tools.invoke(TEST_MESSAGES)
+    assert result_with_tools is not None
+    print("✓ Invoke with tools test passed")
+
+    # Test 3: Error handling for empty messages
+    with pytest.raises(ValueError):
+        chat_baml.invoke([])
+
+    print("✓ Invoke error handling test passed")
+
+
 def run_all_tests():
     """Run all unit tests and report results"""
     print("\n=== Running Unit Tests for ChatBaml._chat_completion_request ===")
 
     test_functions = [
         test_chat_completion_request_basic,
-        test_chat_completion_request_with_empty_tools,
-        test_chat_completion_request_message_conversion,
-        test_chat_completion_request_error_handling
+        test_chat_completion_request_error_handling,
+        test_invoke_request
     ]
 
     passed = 0

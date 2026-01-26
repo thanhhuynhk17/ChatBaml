@@ -1,10 +1,10 @@
 import os
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
-
+import uuid
 import json
 import logging
-from typing import Any, Dict, List, Literal, Optional, Sequence, Union
+from typing import Any, Dict, Iterator, List, Literal, Optional, Sequence, Union, Type, Callable, AsyncIterator
 from pydantic import Field  # Import Field for metadata
 
 from baml_py import ClientRegistry
@@ -13,23 +13,33 @@ from baml_client import (
 )
 from baml_client.types import (
     BamlState,
-    BaseMessage as BamlBaseMessage
+    BaseMessage as BamlBaseMessage,
+    DynamicSchema
 )
+from baml_client.stream_types import DynamicSchema as DynamicSchemaChunk
+
+from baml_client.type_builder import TypeBuilder
+
 from custom_langchain_model.helpers.parse_json_schema import convert_to_baml_tool
 
-from custom_langchain_model.llms.types import Provider, Role
+from custom_langchain_model.llms.types import Provider, Role, BamlAbortError
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import (
     AIMessage,
+    AIMessageChunk,
     BaseMessage,
     ChatMessage,
     HumanMessage,
     SystemMessage,
     ToolMessage,
 )
-from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
+
 from langchain_core.callbacks import CallbackManagerForLLMRun
+from langchain_core.runnables import Runnable, RunnableConfig
+from langchain_core.tools import BaseTool
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -74,11 +84,29 @@ class ChatBaml(BaseChatModel):
         description="List of allowed roles for messages (defaults to system, user, assistant, tool)."
     )
     
+    property_name: str = Field(
+        default="selected_tool",
+        description=(
+            "Name of the property BAML uses to indicate the selected tool in its response. "
+            "Defaults to 'selected_tool'. Change this if your BAML tool bundle returns the "
+            "chosen tool under a different field name."
+        ),
+    )
+    
     # Additional options
     additional_options: Dict[str, Any] = Field(
         default_factory=dict,
         description="Dictionary for any extra parameters not explicitly defined in the class."
     )
+
+    @property
+    def _tb(self) -> TypeBuilder | None:
+        """Get the _tb value"""
+        return self.__dict__.get("_tb")
+    @_tb.setter
+    def _tb(self, value: TypeBuilder | None) -> None:
+        """Set the _tb value"""
+        self.__dict__["_tb"] = value
 
     @property
     def _llm_type(self) -> str:
@@ -173,62 +201,25 @@ class ChatBaml(BaseChatModel):
 
         return baml_messages
 
-    def _prepare_baml_input(self, messages: List[BaseMessage]) -> str:
-        """
-        Converts LangChain messages to a string format for BAML.
-        Note: BAML functions usually take specific structured inputs.
-        This helper provides a default string representation of the chat history.
-        """
-        raise NotImplementedError(
-            "ChatBaml._prepare_baml_input is not implemented yet."
-        )
-        # formatted_messages = []
-        # for msg in messages:
-        #     if isinstance(msg, HumanMessage):
-        #         role = "User"
-        #     elif isinstance(msg, AIMessage):
-        #         role = "Assistant"
-        #     elif isinstance(msg, SystemMessage):
-        #         role = "System"
-        #     else:
-        #         role = "Other"
-        #     formatted_messages.append(f"{role}: {msg.content}")
-        # return "\n".join(formatted_messages)
-
-    async def _chat_completion_request(
-        self,
-        messages: List[BaseMessage],
+    def _prepare_tb(self,
         stop: Optional[List[str]] = None,
-        context: Optional[dict] = None,
-        stream: bool = False,
         tools: Optional[List[dict]] = None,
         tool_choice: Optional[Union[str, dict]] = None,
-    ) -> Dict[str, Any]:
-        """
-        Asynchronously makes a chat completion request using BAML.
-
-        Args:
-            messages: List of LangChain BaseMessage objects
-            stop: Optional list of stop sequences
-            context: Optional context dictionary
-            stream: Whether to stream the response
-            tools: Optional list of LangChain tool dictionaries
-            tool_choice: Optional tool choice specification (ignored for now)
-
-        Returns:
-            Dictionary containing the BAML response
-        """
-        # Convert LangChain messages to BAML format
-        baml_messages = self._convert_to_baml_messages(messages)
-
-        # Handle tools conversion if provided
+    ) -> Optional[TypeBuilder]:
+        
+        if tool_choice:
+            raise NotImplementedError("Tool choice handling not implemented yet; will be added later")
+        if stop:
+            raise NotImplementedError("stop handling not implemented yet; will be added later")
+        
         tb = None
+        
         if tools:
             try:
                 tb = convert_to_baml_tool(
                     tools=tools,
-                    is_multiple_tools=True, # single / multiple tools
-                    
+                    is_multiple_tools=False, # single / multiple tools
+                    property_name=self.property_name,
                     # Predefined "ReplyToUser" tool used to route a tool's output back into the chat as an assistant (AI) message.
                     include_reply_to_user=True
                 )
@@ -243,6 +234,7 @@ class ChatBaml(BaseChatModel):
             try:
                 tb = convert_to_baml_tool(
                     tools=[],
+                    property_name=self.property_name,
                     is_multiple_tools=False,
                     include_reply_to_user=True
                 )
@@ -250,25 +242,8 @@ class ChatBaml(BaseChatModel):
             except Exception as e:
                 logger.error(f"Failed to create ReplyToUser tool bundle: {e}")
                 raise ValueError(f"Failed to create ReplyToUser tool bundle: {e}")
-        # Create BamlState with converted messages
-        baml_state = BamlState(messages=baml_messages)
 
-        # Call BAML ChooseTool function asynchronously
-        logger.debug("Calling BAML ChooseTool function")
-        try:
-            response = await self.b.ChooseTool(baml_state, {"tb": tb})
-            logger.debug(f"BAML ChooseTool response received: {type(response)}")
-
-            # Return the raw BAML response
-            return {
-                "response": response,
-                "baml_state": baml_state
-            }
-
-        except Exception as e:
-            logger.error(f"BAML ChooseTool function call failed: {e}")
-            raise RuntimeError(f"BAML function execution failed: {e}")
-        
+        return tb
 
     def _generate(
         self,
@@ -278,17 +253,155 @@ class ChatBaml(BaseChatModel):
         **kwargs: Any,
     ) -> ChatResult:
         """
-        Synchronous generation. 
-        Note: This requires a BAML function that acts as a generic chat completion.
-        If your BAML functions are specific (e.g., ExtractResume), use them directly.
+        Synchronous generation using BAML.
+
+        This method calls the asynchronous _agenerate method and returns the result.
+        It provides synchronous compatibility for LangChain while using BAML's async API.
+
+        Args:
+            messages: List of LangChain BaseMessage objects
+            stop: Optional list of stop sequences
+            run_manager: Optional callback manager for LLM run
+            **kwargs: Additional arguments
+
+        Returns:
+            ChatResult containing the generation
         """
-        # This is a placeholder for how one might call a generic BAML chat function
-        # Since BAML is function-centric, a 'BaseChatModel' implementation 
-        # usually implies a generic 'Chat' function exists in BAML.
         raise NotImplementedError(
-            "BAML is function-centric. Please use the .b property to access "
-            "dynamically configured BAML functions directly, e.g., chat_baml.b.MyFunction(args)"
+            "Synchronous _generate is not implemented for ChatBaml. "
+            "This custom chat model only supports async invocation. "
+            "Please use the async API (e.g., await chat_baml.ainvoke(messages) "
+            "or asyncio.run(chat_baml.ainvoke(messages)))."
         )
+
+    async def _astream(
+        self,
+        messages: List[BaseMessage],
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[ChatGenerationChunk]:
+        """
+        Stream the output of the model using BAML streaming.
+
+        This method implements streaming support by using BAML's streaming API.
+        It converts BAML streaming responses to LangChain's ChatGenerationChunk format.
+
+        Args:
+            messages: List of LangChain BaseMessage objects
+            stop: Optional list of stop sequences
+            run_manager: Optional callback manager for LLM run
+            **kwargs: Additional arguments
+
+        Returns:
+            Iterator of ChatGenerationChunk objects
+        """
+        context = kwargs.get("context")
+        if context:
+            raise NotImplementedError("context handling not implemented yet; will be added later")
+        if stop:
+            raise NotImplementedError("stop handling not implemented yet; will be added later")
+        
+        
+        tools = kwargs.get('tools', [])
+        tool_names = [ cls.name if hasattr(cls, 'name') else cls.__name__ for cls in tools ]
+        # FIXME: reply_to_user now acting like a simple AIMessage, refactor later!
+        tool_names += ['reply_to_user']
+        
+        # Convert LangChain messages to BAML format
+        baml_messages = self._convert_to_baml_messages(messages)
+        # Create BamlState with converted messages
+        baml_state = BamlState(messages=baml_messages)
+
+        # Prepare type builder with dynamic schema for tools
+        tb = self._prepare_tb(
+            tools=tools
+        )
+        
+        # Call the chat completion request method
+        try:
+            stream = self.b.stream.ChooseTool(baml_state, {"tb": tb})
+            
+            async for partial in stream:
+                print("partial", partial)
+                ai_message_chunk = self._convert_to_ai_message(partial, tool_names, is_streaming=True)
+                chunk = ChatGenerationChunk(message=ai_message_chunk)
+                yield chunk
+            final = await stream.get_final_response()
+            
+            yield ChatGenerationChunk(
+                message=self._convert_to_ai_message(final, tool_names, is_streaming=True)
+            )
+        except BamlAbortError:
+            yield "data: [CANCELLED]\n\n"
+        # finally:
+        #     active_streams.pop(stream_id, None)
+
+    def _convert_to_ai_message(
+        self,
+        dynamic_schema: Union[DynamicSchema, DynamicSchemaChunk],
+        tool_names: List[str],
+        is_streaming: bool = False,
+    ) -> Union[AIMessage, AIMessageChunk]:
+
+        # Safe extraction – this is the most battle-tested pattern with BAML streaming
+        tool_dict = getattr(dynamic_schema, "selected_tool", None)
+        if not isinstance(tool_dict, dict):
+            tool_dict = {}
+
+        tool_name = tool_dict.get("name")
+        arguments = tool_dict.get("arguments") or {}
+
+        if is_streaming:
+            # ─────────────── Streaming ───────────────
+            if tool_name in (None, ""):
+                # undecided → content delta
+                return AIMessageChunk(
+                    content=getattr(dynamic_schema, "content", "") or ""
+                )
+
+            if tool_name == "reply_to_user":
+                return AIMessageChunk(
+                    content=arguments.get("content", "")
+                )
+
+            # real tool call delta (even partial)
+            return AIMessageChunk(
+                content="",
+                tool_call_chunks=[{
+                    "name": tool_name,
+                    "args": json.dumps(arguments, ensure_ascii=False) if arguments else "{}",
+                    "id": str(uuid.uuid4()),
+                    "index": 0,
+                }]
+            )
+
+        else:
+            # ─────────────── Final / non-streaming ───────────────
+            if tool_name in (None, ""):
+                return AIMessage(
+                    content=getattr(dynamic_schema, "content", "") or ""
+                )
+
+            if tool_name == "reply_to_user":
+                return AIMessage(
+                    content=arguments.get("content", "")
+                )
+
+            # Final tool call → validate
+            if tool_name not in tool_names:
+                raise ValueError(
+                    f"Tool '{tool_name}' selected but not in available tools: {tool_names}"
+                )
+
+            return AIMessage(
+                content=json.dumps(tool_dict, ensure_ascii=False),
+                tool_calls=[{
+                    "name": tool_name,
+                    "args": arguments,
+                    "id": str(uuid.uuid4())
+                }]
+            )
 
     async def _agenerate(
         self,
@@ -297,11 +410,56 @@ class ChatBaml(BaseChatModel):
         run_manager: Optional[CallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ) -> ChatResult:
-        """Asynchronous generation."""
-        raise NotImplementedError(
-            "BAML is function-centric. Please use the .b property to access "
-            "dynamically configured BAML functions directly."
+        """
+        Asynchronous generation using BAML.
+
+        This method calls the BAML ChooseTool function and converts the response
+        to LangChain's ChatResult format.
+
+        Args:
+            messages: List of LangChain BaseMessage objects
+            stop: Optional list of stop sequences
+            run_manager: Optional callback manager for LLM run
+            **kwargs: Additional arguments
+
+        Returns:
+            ChatResult containing the generation
+        """
+        context = kwargs.get("context")
+        if context:
+            raise NotImplementedError("context handling not implemented yet; will be added later")
+        
+        tools = kwargs.get('tools', [])
+        tool_names = [ cls.name if hasattr(cls, 'name') else cls.__name__ for cls in tools ]
+        # FIXME: reply_to_user now acting like a simple AIMessage, refactor later!
+        tool_names += ['reply_to_user']
+        
+        # Convert LangChain messages to BAML format
+        baml_messages = self._convert_to_baml_messages(messages)
+        # Create BamlState with converted messages
+        baml_state = BamlState(messages=baml_messages)
+
+        # Prepare type builder with dynamic schema for tools
+        tb = self._prepare_tb(
+            tools=tools
         )
+        # Call the chat completion request method
+        try:
+            dynamic_schema = await self.b.ChooseTool(baml_state, {"tb": tb})
+            logger.debug(f"BAML ChooseTool response received: {type(dynamic_schema)}")
+        except Exception as e:
+            logger.error(f"BAML ChooseTool function call failed: {e}")
+            raise RuntimeError(f"BAML function execution failed: {e}")
+
+        ai_message = self._convert_to_ai_message(dynamic_schema, tool_names)
+
+        # Create ChatGeneration
+        generation = ChatGeneration(
+            message=ai_message,
+            generation_info={"baml": dynamic_schema}
+        )
+        # Return ChatResult
+        return ChatResult(generations=[generation])
 
     @property
     def b(self):
@@ -310,6 +468,53 @@ class ChatBaml(BaseChatModel):
         Usage: chat_baml.b.MyBamlFunction(args)
         """
         return baml_root_client.with_options(client_registry=self._get_client_registry())
+
+    def bind_tools(
+        self,
+        tools: List[Union[Type[BaseModel], Callable]],
+        *,
+        tool_choice: Optional[str | Dict[str, Any]] = None
+    ) -> Runnable:
+        """
+        Return a new runnable with tools pre-bound for BAML.
+
+        This method follows the LangChain pattern for tool binding but uses BAML's
+        tool system directly. The actual BAML conversion happens in _agenerate().
+
+        Args:
+            tools: List of Pydantic BaseModel classes and/or callable functions
+            tool_choice: Optional tool choice specification (name of tool to use)
+
+        Returns:
+            Runnable that uses the bound tools
+        """
+        # tools is already a List, no conversion needed
+        tools_to_bind = tools
+
+        if tool_choice and isinstance(tool_choice, str):
+            # Filter to only the selected tool
+            tools_to_bind = []
+            for tool in tools:
+                if isinstance(tool, type) and issubclass(tool, BaseModel):
+                    # Pydantic model - check class name
+                    if tool.__name__ == tool_choice:
+                        tools_to_bind.append(tool)
+                elif hasattr(tool, 'name'):
+                    # LangChain tool - check name attribute
+                    if tool.name == tool_choice:
+                        tools_to_bind.append(tool)
+
+            if not tools_to_bind:
+                raise ValueError(f"Tool '{tool_choice}' not found in provided tools")
+
+        # Create extra dict as specified by user
+        extra: Dict[str, Any] = {
+            "tools": tools_to_bind,  # Pass tools through
+            "tool_choice": tool_choice
+        }
+
+        # Return bound instance - BAML conversion happens later in _agenerate()
+        return self.bind(**extra)
 
     def __getattr__(self, name: str) -> Any:
         """
@@ -321,3 +526,43 @@ class ChatBaml(BaseChatModel):
         except AttributeError:
             logger.debug(f"Proxying BAML function call: {name}")
             return getattr(self.b, name)
+
+# Quick test
+import asyncio
+
+async def main():
+    from langchain_core.messages import (
+        AIMessage,
+        HumanMessage,
+        SystemMessage,
+    )
+
+    # Test messages
+    TEST_MESSAGES = [
+        SystemMessage(content="You are a helpful assistant that answers concisely."),
+        HumanMessage(content="Provide a one-sentence summary of the following paragraph."),
+        AIMessage(content="LangChain is a framework for developing applications with large language models. It provides tools for prompt management, chaining calls, and building agents that interact with external tools."),
+        HumanMessage(content="I have a pen, i have 3 others, boom, what result would be when i combined them")
+    ]
+    chat_baml = ChatBaml(
+        base_url=os.getenv("OPENAI_BASE_URL"),
+        api_key=os.getenv("OPENAI_API_KEY"),
+        model=os.getenv("OPENAI_MODEL_NAME")
+    )
+    from test.fixtures.sample_tools import CalculatorAdd, get_weather
+
+    # Bind tools and test invoke
+    chat_baml_with_tools = chat_baml.bind_tools([CalculatorAdd, get_weather])
+    # result_with_tools = await chat_baml_with_tools.ainvoke(TEST_MESSAGES)
+
+    # print(result_with_tools)
+    
+    # Async
+    # Async streaming
+    async for chunk in chat_baml_with_tools.astream(TEST_MESSAGES):
+        print("CHUNK!")
+        print(chunk, end="", flush=True)
+    print("\n" + "="*50)
+    
+if __name__ == "__main__":
+    asyncio.run(main())
