@@ -200,13 +200,32 @@ AI response: The sum of 73 and 93 is 166, and the product of 55 and 55 is 3025.
 ## 📋 Usage
 
 ```python
-# Async usage (recommended)
-result = await chat_baml.agenerate(messages)
-async for chunk in chat_baml.astream(messages):
+from langchain.tools import tool
+import os
+from dotenv import load_dotenv, find_dotenv
+load_dotenv(find_dotenv())
+
+@tool
+def add(a: int, b: int) -> int:
+    """Add two integers."""
+    return a + b
+@tool
+def multiply(x: int, y: int) -> int:
+    """Multiply two integers."""
+    return x * y
+
+chat_baml = ChatBaml(
+    base_url=os.getenv("OPENAI_BASE_URL"),
+    api_key=os.getenv("OPENAI_API_KEY"),
+    model=os.getenv("OPENAI_MODEL_NAME")
+)
+chat_baml_with_tools = chat_baml.bind_tools([add, multiply])
+
+# Streaming usage
+async for chunk in chat_baml_with_tools.astream(messages):
     print(chunk)
 
-# Tool binding
-chat_baml_with_tools = chat_baml.bind_tools([AddTool, MultiplyTool])
+# Async invoke
 result = await chat_baml_with_tools.ainvoke(messages)
 ```
 
