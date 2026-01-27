@@ -1,5 +1,9 @@
 import os
 from dotenv import load_dotenv, find_dotenv
+
+from custom_langchain_model.helpers.render_agent_wants_to import (
+    format_args_no_quote_keys, render_agent_wants_to
+)
 load_dotenv(find_dotenv())
 import uuid
 import json
@@ -55,7 +59,7 @@ class ChatBaml(BaseChatModel):
         description="The name of the language model to use (e.g., 'gpt-4o' for OpenAI)."
     )
     temperature: float = Field(
-        default=0.0,
+        default=0.7,
         description="Controls randomness in model outputs (0.0 for deterministic, higher for creative)."
     )
     provider: Provider = Field(
@@ -99,14 +103,14 @@ class ChatBaml(BaseChatModel):
         description="Dictionary for any extra parameters not explicitly defined in the class."
     )
 
-    @property
-    def _tb(self) -> TypeBuilder | None:
-        """Get the _tb value"""
-        return self.__dict__.get("_tb")
-    @_tb.setter
-    def _tb(self, value: TypeBuilder | None) -> None:
-        """Set the _tb value"""
-        self.__dict__["_tb"] = value
+    # @property
+    # def _tb(self) -> TypeBuilder | None:
+    #     """Get the _tb value"""
+    #     return self.__dict__.get("_tb")
+    # @_tb.setter
+    # def _tb(self, value: TypeBuilder | None) -> None:
+    #     """Set the _tb value"""
+    #     self.__dict__["_tb"] = value
 
     @property
     def _llm_type(self) -> str:
@@ -323,7 +327,6 @@ class ChatBaml(BaseChatModel):
             stream = self.b.stream.ChooseTool(baml_state, {"tb": tb})
             
             async for partial in stream:
-                print("partial", partial)
                 ai_message_chunk = self._convert_to_ai_message(partial, tool_names, is_streaming=True)
                 chunk = ChatGenerationChunk(message=ai_message_chunk)
                 yield chunk
@@ -351,7 +354,11 @@ class ChatBaml(BaseChatModel):
 
         tool_name = tool_dict.get("name")
         arguments = tool_dict.get("arguments") or {}
-
+        
+        dynamic_schema_formated = render_agent_wants_to(
+            tool_name, 
+            dynamic_schema.model_dump()
+        )
         if is_streaming:
             # ─────────────── Streaming ───────────────
             if tool_name in (None, ""):
@@ -367,7 +374,7 @@ class ChatBaml(BaseChatModel):
 
             # real tool call delta (even partial)
             return AIMessageChunk(
-                content="",
+                content=dynamic_schema_formated,
                 tool_call_chunks=[{
                     "name": tool_name,
                     "args": json.dumps(arguments, ensure_ascii=False) if arguments else "{}",
@@ -395,7 +402,7 @@ class ChatBaml(BaseChatModel):
                 )
 
             return AIMessage(
-                content=json.dumps(tool_dict, ensure_ascii=False),
+                content=dynamic_schema_formated,
                 tool_calls=[{
                     "name": tool_name,
                     "args": arguments,
@@ -560,8 +567,7 @@ async def main():
     # Async
     # Async streaming
     async for chunk in chat_baml_with_tools.astream(TEST_MESSAGES):
-        print("CHUNK!")
-        print(chunk, end="", flush=True)
+        print(chunk.content, end="\n", flush=True)
     print("\n" + "="*50)
     
 if __name__ == "__main__":

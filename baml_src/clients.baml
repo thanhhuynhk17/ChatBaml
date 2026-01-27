@@ -6,7 +6,7 @@ client<llm> ChatBaml {
     model env.OPENAI_MODEL_NAME
     default_role "user" // Required for using VLLM
     allowed_roles ["system", "user", "assistant", "tool"]
-    temperature 0
+    temperature 0.8
     top_p 0.8
     top_k 20
     presence_penalty 1.5

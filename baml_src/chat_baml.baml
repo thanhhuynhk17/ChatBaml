@@ -19,7 +19,7 @@ template_string RenderMessages(messages: BaseMessage[]) ##"
       {% if m.role=="system" %}
         {{ _.role( m.role ) }}
         {{ m.content }}
-        {{ ctx.output_format(prefix="\nAnswer in JSON using this schema:\n") }}
+        {{ ctx.output_format(prefix="\nAnswer in JSON-like string ( no double quotes in keys ) using this schema:\n") }}
       {% else %}
         {{ _.role( "system" ) }}
         {{ ctx.output_format}}
