@@ -17,3 +17,8 @@ dev = [
     "langchain-openai>=1.1.7",
     "pytest>=9.0.2",
 ]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["baml_client*", "custom_langchain_model*"]
+exclude = ["baml_src*"]  # baml_src isn't a Python package — it's BAML source files
