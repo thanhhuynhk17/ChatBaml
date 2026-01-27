@@ -197,21 +197,39 @@ You asked: What's the sum of 73 and 93, and the product of 55 and 55?
 AI response: The sum of 73 and 93 is 166, and the product of 55 and 55 is 3025.
 ```
 
-## 📋 Usage
+## 📋 Quick usage example
 
 ```python
-from langchain.tools import tool
+import asyncio
+import time
+from langchain.messages import (
+    HumanMessage,
+    SystemMessage,
+)
+from custom_langchain_model.llms.chat_baml import ChatBaml
 import os
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 
-@tool
-def add(a: int, b: int) -> int:
+from langchain.tools import tool
+from pydantic import BaseModel, Field
+
+# Recommended: define tool input schemas using Pydantic BaseModel.
+# Pydantic models provide validation, type hints, and descriptive fields that simplify BAML conversion.
+class AddInput(BaseModel):
     """Add two integers."""
+    a: str = Field(description="First integer to add")
+    b: int = Field(default=5, description="Second integer to add")
+@tool(args_schema=AddInput)
+def add(a: int, b: int) -> int:
     return a + b
-@tool
-def multiply(x: int, y: int) -> int:
+
+class MultiplyInput(BaseModel):
     """Multiply two integers."""
+    x: str = Field(description="First integer to multiply")
+    y: int = Field(default=5, description="Second integer to multiply")
+@tool(args_schema=MultiplyInput)
+def multiply(x: int, y: int) -> int:
     return x * y
 
 chat_baml = ChatBaml(
@@ -221,12 +239,22 @@ chat_baml = ChatBaml(
 )
 chat_baml_with_tools = chat_baml.bind_tools([add, multiply])
 
-# Streaming usage
-async for chunk in chat_baml_with_tools.astream(messages):
-    print(chunk)
+messages = [
+    SystemMessage(content="You are a helpful assistant that answers concisely."),
+    HumanMessage(content="I have a pen, i have 3 others, boom, what result would be when i combined them")
+]
 
-# Async invoke
-result = await chat_baml_with_tools.ainvoke(messages)
+async def main():
+    # Streaming usage
+    async for chunk in chat_baml_with_tools.astream(messages):
+        print(chunk)  
+        time.sleep(1)
+
+    # Async invoke
+    result = await chat_baml_with_tools.ainvoke(messages)
+    
+if __name__=="__main__":
+    asyncio.run(main())
 ```
 
 ## 🚀 Key Features
