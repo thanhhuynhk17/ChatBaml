@@ -374,7 +374,7 @@ class ChatBaml(BaseChatModel):
 
             # real tool call delta (even partial)
             return AIMessageChunk(
-                content=dynamic_schema_formated,
+                content='',
                 tool_call_chunks=[{
                     "name": tool_name,
                     "args": json.dumps(arguments, ensure_ascii=False) if arguments else "{}",
@@ -402,7 +402,7 @@ class ChatBaml(BaseChatModel):
                 )
 
             return AIMessage(
-                content=dynamic_schema_formated,
+                content='',
                 tool_calls=[{
                     "name": tool_name,
                     "args": arguments,

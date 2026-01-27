@@ -1,0 +1,9 @@
+{
+  "dependencies": [
+    "."
+  ],
+  "graphs": {
+    "customer_support": "./react_agent/agent.py:agent"
+  },
+  "env": ".env"
+}
