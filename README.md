@@ -2,8 +2,15 @@
 
 A project that extends a Custom LangChain Chat Model to integrate with BAML, creating a bridge between LangChain's powerful LLM orchestration capabilities and BAML's structured data extraction and function calling features.
 
-**Fork of**: [tranngocphu/custom_langchain_chat_model](https://github.com/tranngocphu/custom_langchain_chat_model)  
 **Status**: Active Development ⚠️
+
+## Planned Improvements (Rough Priority Order)
+1. Fix streaming support (`astream`) with safe partial parsing
+2. Add full support for message dicts / content blocks
+3. Enable image/multimodal inputs (vision models)
+4. Improve parallel tool calling if BAML use-case justifies it
+5. Possibly add sync interface (`.invoke`, `.stream`) wrappers for convenience
+6. More complex agent/tool examples (LangGraph integration, ReAct-style loops)
 
 ## 🚀 Quick Start
 
