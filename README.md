@@ -245,10 +245,10 @@ messages = [
 ]
 
 async def main():
-    # Streaming usage
-    async for chunk in chat_baml_with_tools.astream(messages):
-        print(chunk)  
-        time.sleep(1)
+    # NOTE: Streaming is disabled due to a bug with partial tool outputs.
+    # Streaming usage:
+    # async for chunk in chat_baml_with_tools.astream(messages):
+        # print(chunk)  
 
     # Async invoke
     result = await chat_baml_with_tools.ainvoke(messages)
