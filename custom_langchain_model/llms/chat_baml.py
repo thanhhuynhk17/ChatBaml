@@ -192,26 +192,40 @@ class ChatBaml(BaseChatModel):
         Raises:
             TypeError: If an unsupported message type is encountered
         """
+        from custom_langchain_model.helpers.messages import convert_to_baml_content_block
         baml_messages = []
         for msg in messages:
-            if isinstance(msg, HumanMessage):
-                role = "user"
-            elif isinstance(msg, AIMessage):
-                role = "assistant"
-            elif isinstance(msg, SystemMessage):
-                role = "system"
-            elif isinstance(msg, ToolMessage):
-                role = "tool"
-            else:
-                raise TypeError(
-                    f"Unsupported message type: {type(msg).__name__}. "
-                    "Expected one of: HumanMessage, AIMessage, SystemMessage, ToolMessage."
-                )
-
-            baml_messages.append(BamlBaseMessage(
-                role=role,
-                content=str(msg.content)
-            ))
+            content_block = convert_to_baml_content_block(msg.content_blocks)
+            match msg:
+                case HumanMessage():
+                    baml_msg = BamlBaseMessage(
+                        role="user",
+                        content_block=content_block
+                    )
+                    baml_messages.append(baml_msg)
+                # below has no image support for now
+                case AIMessage():
+                    baml_msg = BamlBaseMessage(
+                        role="assistant",
+                        content_block=content_block
+                    )
+                    baml_messages.append(baml_msg)
+                case SystemMessage():
+                    baml_msg = BamlBaseMessage(
+                        role="system",
+                        content_block=content_block
+                    )
+                    baml_messages.append(baml_msg)
+                case ToolMessage():
+                    baml_msg = BamlBaseMessage(
+                        role="tool",
+                        content_block=content_block
+                    )
+                    baml_messages.append(baml_msg)
+                case _:
+                    raise TypeError(
+                        f"Unsupported message: {msg}. "
+                    )
 
         return baml_messages
 
@@ -464,6 +478,7 @@ class ChatBaml(BaseChatModel):
 
         tool_name = tool_dict.get("name")
         arguments = tool_dict.get("arguments") or {}
+        
         if is_streaming:
             # ─────────────── Streaming ───────────────
             if tool_name in (None, ""):
@@ -484,7 +499,7 @@ class ChatBaml(BaseChatModel):
 
             # real tool call delta (even partial)
             return AIMessageChunk(
-                content='',
+                content=render_agent_wants_to(tool_name, arguments),
                 tool_call_chunks=[{
                     "name": tool_name,
                     "args": json.dumps(arguments, ensure_ascii=False) if arguments else "{}",
@@ -704,10 +719,10 @@ async def main():
         api_key=os.getenv("OPENAI_API_KEY"),
         model=os.getenv("OPENAI_MODEL_NAME")
     )
-    from test.fixtures.sample_tools import CalculatorAdd, get_weather
+    from tools import simple_tools
 
     # Bind tools and test invoke
-    chat_baml_with_tools = chat_baml.bind_tools([CalculatorAdd, get_weather])
+    chat_baml_with_tools = chat_baml.bind_tools(simple_tools)
     result_with_tools = await chat_baml_with_tools.ainvoke(TEST_MESSAGES)
 
     print(result_with_tools)

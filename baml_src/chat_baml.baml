@@ -2,34 +2,64 @@ class DynamicSchema {
   @@dynamic
 }
 
+class ContentBlock{
+  text string
+  img image?
+  tool_call ToolCall?
+}
+
+class ToolCall {
+  name string
+  args string
+}
 
 class BaseMessage {
   role "system" | "user" | "assistant" | "tool"
-  content string
+  content_block ContentBlock
 }
 
-class AIMessage {
-  role "assistant"
-  content string
-}
-
+// FIXME: Duplicated message rendering logic should be removed
 template_string RenderMessages(messages: BaseMessage[]) ##"
   {% for m in messages %}
     {% if loop.first %}
       {% if m.role=="system" %}
-        {{ _.role( m.role ) }}
-        {{ m.content }}
+        {{ _.role( "system" ) }}
+        {{ m.content_block.text }}
         {{ ctx.output_format(prefix="\nAnswer in JSON-like string ( no double quotes in keys ) using this schema:\n") }}
       {% else %}
         {{ _.role( "system" ) }}
-        {{ ctx.output_format}}
+        {{ ctx.output_format(prefix="\nAnswer in JSON-like string ( no double quotes in keys ) using this schema:\n") }}
+
+        {# normal render #}
         {{ _.role( m.role ) }}
-        {{ m.content }}
+        {{ m.content_block.text }}
+        
+        {# multimodal support #}
+        {% if m.content_block.img %}
+          {{ m.content_block.img }}
+        {% endif %}
+
+        {# tool call support #}
+        {% if m.content_block.tool_call %}
+          {{- '\n<tool_call>\n{"name": "' ~ m.content_block.tool_call.name ~ '", "arguments": ' ~ m.content_block.tool_call.args ~ '}\n</tool_call>' -}}
+        {% endif %}
+
       {% endif %}
+    
     {% else %}
       {# normal render #}
       {{ _.role( m.role ) }}
-      {{ m.content }}
+      {{ m.content_block.text }}
+
+      {# multimodal support #}
+      {% if m.content_block.img %}
+        {{ m.content_block.img }}
+      {% endif %}
+
+      {# tool call support #}
+      {% if m.content_block.tool_call %}
+        {{- '\n<tool_call>\n{"name": "' ~ m.content_block.tool_call.name ~ '", "arguments": ' ~ m.content_block.tool_call.args ~ '}\n</tool_call>' -}}
+      {% endif %}
     {% endif %}
     
   {% endfor %}
@@ -37,6 +67,11 @@ template_string RenderMessages(messages: BaseMessage[]) ##"
 
 
 // === Tool Definitions ===
+class AIMessage {
+  role "assistant"
+  content string
+}
+
 class ReplyToUser {
   name "reply_to_user" @description(#"
     Use this tool when you want to send a natural language response shown to the user.
@@ -57,34 +92,35 @@ class BamlState {
 function ChooseTool(state: BamlState) -> DynamicSchema {
     client ChatBaml
     prompt #"
-        {{RenderMessages(state.messages) }}
+      {{RenderMessages(state.messages) }}
     "#
 }
 
-test TestName {
+test DynamicClassTest {
   functions [ChooseTool]
+  type_builder {
+    dynamic class DynamicSchema {
+        selected_tool ReplyToUser
+    }
+  }
   args {
     state {
-        messages [
-        {
-            role "user"
-            content #"
-            Hi
-          "#
-        },
-        {
-            role "tool"
-            content #"
-            How can I help you?
-          "#
-        },
-        {
-            role "user"
-            content #"
-            Hi, what's the weather like?
-          "#
-        },
-      ]
+      messages [
+      {
+        role "system"
+        content_block {
+          text "You are a helpful assistant that provides information about images."
+        }
+      },
+      {
+        role "user"
+        content_block {
+          text "Extract all text from the image without any description."
+          img {
+            file "../images/1732261281369.jfif"
+          }
+        }
+      }]
     }
   }
 }

@@ -2,11 +2,14 @@
 
 A project that extends a Custom LangChain Chat Model to integrate with BAML, creating a bridge between LangChain's powerful LLM orchestration capabilities and BAML's structured data extraction and function calling features.
 
+![demo](https://github.com/user-attachments/assets/966896b7-2890-438d-b5a7-80501689f8ac)
+
 **Status**: Active Development ⚠️
 
 ## Planned Improvements (Rough Priority Order)
 1. Fix streaming support (`astream`) with safe partial parsing ✓
-2. Add full support for message dicts / content blocks
+2. Add full support for message dicts / content blocks ✓
+  - Set LC_OUTPUT_VERSION="v1" to standardize content_blocks in Langchain, this is required. For more information: https://docs.langchain.com/oss/python/migrate/langchain-v1#standard-content
 3. Enable image/multimodal inputs (vision models)
 4. Improve parallel tool calling if BAML use-case justifies it
 5. Possibly add sync interface (`.invoke`, `.stream`) wrappers for convenience
@@ -44,6 +47,9 @@ OPENAI_API_KEY="sk_some_dummy_text"
 # Set the default role in your .env when using an OpenAI-compatible server hosted by vLLM
 DEFAULT_ROLE="user"
 BAML_LOG=off # to disable Baml log
+
+# Required for standardized content blocks in Langchain
+LC_OUTPUT_VERSION="v1"
 ```
 
 ## 📋 Recent Test Results
