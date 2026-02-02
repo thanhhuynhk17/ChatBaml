@@ -36,7 +36,7 @@ async def serve_graph(
     # Invoke the graph asynchronously
     resp = await graph.ainvoke(
         input_state,
-        config={"callbacks":[StdOutCallbackHandler()]}
+        # config={"callbacks":[StdOutCallbackHandler()]}
     )
     
     # Process the response

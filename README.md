@@ -5,7 +5,7 @@ A project that extends a Custom LangChain Chat Model to integrate with BAML, cre
 **Status**: Active Development ⚠️
 
 ## Planned Improvements (Rough Priority Order)
-1. Fix streaming support (`astream`) with safe partial parsing
+1. Fix streaming support (`astream`) with safe partial parsing ✓
 2. Add full support for message dicts / content blocks
 3. Enable image/multimodal inputs (vision models)
 4. Improve parallel tool calling if BAML use-case justifies it
@@ -46,7 +46,7 @@ DEFAULT_ROLE="user"
 ```
 
 ## 📋 Recent Test Results
-**Model**: Qwen3-VL-30B-A3B-FP8 — deployed on vLLM.
+**Model**: Qwen3-VL-4B — deployed on vLLM.
 - Note: the vLLM tool-call parser feature is disabled; tool selection and parsing are handled via BAML.
 
 **Run main.py**
@@ -55,16 +55,13 @@ DEFAULT_ROLE="user"
 (ChatBaml) vllm_user@idc-2-97:~/git_repos/ChatBaml$ uv run python main.py
 ```
 
-**Command Output:**
-
+**Command Output (last run with reply_to_user tool):**
 ```bash
-You asked: What's the sum of 73 and 93, and the product of 55 and 55?
-// 1. Agent decided to call `add`
-2026-01-27T10:23:01.436 [BAML INFO] Function ChooseTool:
-    Client: OpenAIGeneric (qwen3-vl) - 340ms. StopReason: stop. Tokens(in/out): 178/40
+2026-02-02T07:55:24.407 [BAML INFO] Function ChooseTool:
+    Client: OpenAIGeneric (qwen3-vl) - 2670ms. StopReason: stop. Tokens(in/out): 202/71
     ---PROMPT---
     system: You are a helpful assistant.
-
+          
     Answer in JSON-like string ( no double quotes in keys ) using this schema:
     {
       selected_tool: {
@@ -90,103 +87,16 @@ You asked: What's the sum of 73 and 93, and the product of 55 and 55?
         },
       },
     }
-    user: What's the sum of 73 and 93, and the product of 55 and 55?
-
+    user: What's the sum of 2 and 45, and the product of 66 and 34?
+    tool: Addition result: 47Multiplication result: 2244
+    
     ---LLM REPLY---
-    ```json
-    {
-      selected_tool: {
-        name: "add",
-        arguments: {
-          a: 73,
-          b: 93
-        }
-      }
-    }
-    ```
-    ---Parsed Response (class DynamicSchema)---
     {
       "selected_tool": {
-        "name": "add",
+        "name": "reply_to_user",
         "arguments": {
-          "a": 73,
-          "b": 93
-        }
-      }
-    }
-
-// 2. Agent decided to call `multiply`
-2026-01-27T10:23:01.843 [BAML INFO] Function ChooseTool:
-    Client: OpenAIGeneric (qwen3-vl) - 351ms. StopReason: stop. Tokens(in/out): 239/45
-    user: What's the sum of 73 and 93, and the product of 55 and 55?
-    assistant: Tool `add` was selected with arguments:
-    {
-      selected_tool: {
-        name: "add",
-        arguments: {
-          a: 73,
-          b: 93
-        }
-      }
-    }
-    tool: 166
-
-    ---LLM REPLY---
-    Tool `multiply` was selected with arguments:
-    {
-      selected_tool: {
-        name: "multiply",
-        arguments: {
-          x: 55,
-          y: 55
-        }
-      }
-    }
-    ---Parsed Response (class DynamicSchema)---
-    {
-      "selected_tool": {
-        "name": "multiply",
-        "arguments": {
-          "x": 55,
-          "y": 55
-        }
-      }
-    }
-
-// 3. Agent decided to call `reply_to_user` to finish task
-2026-01-27T10:23:02.391 [BAML INFO] Function ChooseTool:
-    Client: OpenAIGeneric (qwen3-vl) - 506ms. StopReason: stop. Tokens(in/out): 301/68
-    user: What's the sum of 73 and 93, and the product of 55 and 55?
-    assistant: Tool `add` was selected with arguments:
-    {
-      selected_tool: {
-        name: "add",
-        arguments: {
-          a: 73,
-          b: 93
-        }
-      }
-    }
-    tool: 166
-    assistant: Tool `multiply` was selected with arguments:
-    {
-      selected_tool: {
-        name: "multiply",
-        arguments: {
-          x: 55,
-          y: 55
-        }
-      }
-    }
-    tool: 3025
-
-    ---LLM REPLY---
-    {
-      selected_tool: {
-        name: "reply_to_user",
-        arguments: {
-          role: "assistant",
-          content: "The sum of 73 and 93 is 166, and the product of 55 and 55 is 3025."
+          "role": "assistant",
+          "content": "The sum of 2 and 45 is 47, and the product of 66 and 34 is 2244."
         }
       }
     }
@@ -196,11 +106,11 @@ You asked: What's the sum of 73 and 93, and the product of 55 and 55?
         "name": "reply_to_user",
         "arguments": {
           "role": "assistant",
-          "content": "The sum of 73 and 93 is 166, and the product of 55 and 55 is 3025."
+          "content": "The sum of 2 and 45 is 47, and the product of 66 and 34 is 2244."
         }
       }
     }
-AI response: The sum of 73 and 93 is 166, and the product of 55 and 55 is 3025.
+AI response: The sum of 2 and 45 is 47, and the product of 66 and 34 is 2244.
 ```
 
 ## 📋 Quick usage example
@@ -281,8 +191,8 @@ if __name__=="__main__":
 - Tool calls will be waited until final response
 
 ### Tool Integration
-- Automatic conversion of Pydantic BaseModel and LangChain `@tool` functions to BAML schemas
-- End-to-end testing with real BAML functions
+- **Seamless schema generation**: Auto-convert Pydantic `BaseModel` and LangChain `@tool` decorators into BAML function schemas
+- **LLM-agnostic tool calling**: Works with virtually any LLM — no native tool-calling support required (BAML handles orchestration). Only requires an LLM capable of following structured instructions for tool invocation.
 
 ## convert_to_baml_tool Usage
 

@@ -5,7 +5,7 @@
       "name": "Debug parse_json_schema.py",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/test.py",
+      "program": "${workspaceFolder}/main.py",
       // "program": "${workspaceFolder}/.venv/bin/langgraph", // langgraph dev
       // "args": ["dev", "--host", "0.0.0.0"], // use with langgraph dev debug
       "cwd": "${workspaceFolder}",
