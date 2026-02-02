@@ -3,7 +3,6 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.runtime import Runtime
 from langgraph.prebuilt import ToolNode
 from langchain_core.messages import SystemMessage, AIMessage
-from custom_langchain_model.llms.contexts import GeneralChatContext
 from custom_langchain_model.llms.states import GeneralChatState
 from custom_langchain_model.llms.tools import simple_tools
 from custom_langchain_model.llms.chat_baml import ChatBaml
@@ -61,7 +60,7 @@ def make_general_chat_with_tools_graph() -> StateGraph:
 
 
     # --- Build graph ---
-    graph = StateGraph(state_schema=GeneralChatState, context_schema=GeneralChatContext)
+    graph = StateGraph(state_schema=GeneralChatState)
     graph.add_node("llm", llm_node)
     graph.add_node("tools", tool_node)
     graph.add_edge(START, "llm")

@@ -5,12 +5,12 @@
       "name": "Debug parse_json_schema.py",
       "type": "debugpy",
       "request": "launch",
-      // "program": "${workspaceFolder}/custom_langchain_model/helpers/parse_json_schema.py",
-      "program": "${workspaceFolder}/.venv/bin/langgraph", // langgraph dev
-      "args": ["dev"], // use with langgraph dev debug
+      "program": "${workspaceFolder}/test.py",
+      // "program": "${workspaceFolder}/.venv/bin/langgraph", // langgraph dev
+      // "args": ["dev", "--host", "0.0.0.0"], // use with langgraph dev debug
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
-      "justMyCode": true,
+      "justMyCode": false,
       "env": {
         "PYTHONPATH": "${workspaceFolder}"
       }

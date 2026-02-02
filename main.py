@@ -1,10 +1,13 @@
 import asyncio
 import uuid
 from langchain_core.messages import AIMessage, HumanMessage
-from custom_langchain_model.llms.contexts import GeneralChatContext
+from langchain_core.callbacks import BaseCallbackHandler, StdOutCallbackHandler
 from custom_langchain_model.llms.states import GeneralChatState
-from custom_langchain_model.llms.callbacks import AsyncChatCallbackHandler
 from custom_langchain_model.llms.graphs import make_general_chat_with_tools_graph
+
+class StreamingCallback(BaseCallbackHandler):
+    def on_llm_new_token(self, token, **kwargs):
+        print(f"new token: [{token}]", end="", flush=True)
 
 
 
@@ -22,12 +25,7 @@ async def serve_graph(
     # This is used for tracking and logging purposes.
     invoke_id = uuid.uuid4().hex
 
-    # Prepare context
-    context = GeneralChatContext(
-        invoke_id=invoke_id,
-        engine=engine,
-        conversation_id=conversation_id
-    )
+
 
     # Prepare input state
     input_state = GeneralChatState(
@@ -35,18 +33,12 @@ async def serve_graph(
         system_prompt=system_prompt 
     )
 
-    # Setup callback handler for async logging and other purposes
-    callback_handler = AsyncChatCallbackHandler(
-        context=context,
-    )
-
     # Invoke the graph asynchronously
     resp = await graph.ainvoke(
         input_state,
-        # context=context,
-        # config={"callbacks": [callback_handler]}
+        config={"callbacks":[StdOutCallbackHandler()]}
     )
-
+    
     # Process the response
     messages = resp.get('messages', [])
 
@@ -65,6 +57,7 @@ def main():
     
     a, b, c, d = random.randint(1, 100), random.randint(1, 100), random.randint(1, 100), random.randint(1, 100)
     question = f"What's the sum of {a} and {b}, and the product of {c} and {d}?"
+    # question = f"Write a story"
     print("You asked:", question)
 
     # Run the graph in an asyncio event loop

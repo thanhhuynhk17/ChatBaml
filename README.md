@@ -57,7 +57,6 @@ DEFAULT_ROLE="user"
 
 **Command Output:**
 
-Multi-step reasoning
 ```bash
 You asked: What's the sum of 73 and 93, and the product of 55 and 55?
 // 1. Agent decided to call `add`
@@ -266,16 +265,20 @@ if __name__=="__main__":
 
 ## 🚀 Key Features
 
-### Multi-Step Reasoning
-- BAML correctly breaks down complex questions into multiple tool calls
-- Automatic tool selection (`add`, `multiply`, `reply_to_user`)
-- Context management across multiple tool calls
-- Performance: 189-401ms per call with efficient token usage
-
-### Async-Only Architecture
-- Complete async implementation (`_agenerate`, `_astream`, `bind_tools`)
-- Full tool conversion system (`convert_to_baml_tool`)
+### Structure Output Enhancement
+- BAML integration for structured output enhancement
+- Automatic conversion of Pydantic BaseModel and LangChain `@tool` functions to BAML schemas
 - Transparent BAML logging and debugging
+
+### Agent Development
+- LangChain integration for agent development
+- Complete implementation (`_generate`, `_stream`, `bind_tools`)
+- Tool call conversion system (`convert_to_baml_tool`)
+
+### Streaming Support
+- Implemented synchronous `_stream()`; async `_astream()` derived automatically via LangChain's `run_in_executor` with zero additional effort
+- invoke/ainvoke and stream/astream can be used
+- Tool calls will be waited until final response
 
 ### Tool Integration
 - Automatic conversion of Pydantic BaseModel and LangChain `@tool` functions to BAML schemas
@@ -440,7 +443,6 @@ structure_output=[{'action': 'tool_AddTool', 'a': 1, 'b': 3}]
 
 ## Requirements
 
-- Python >= 3.13
 - Key dependencies:
   - `baml-py>=0.218.0`
   - `langchain>=1.0.0`

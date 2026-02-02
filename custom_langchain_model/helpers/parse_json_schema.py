@@ -253,8 +253,7 @@ def convert_to_baml_tool(
     return tb
 
 # test
-import asyncio
-async def main():
+if __name__ == "__main__":
     import os
     from dotenv import load_dotenv, find_dotenv
     load_dotenv(find_dotenv())
@@ -326,13 +325,10 @@ async def main():
         ]
     )
     try:
-        response = await b.ChooseTool(bamlState, {"tb": tb})
+        response = b.ChooseTool(bamlState, {"tb": tb})
         # Parse the response
         print(f"response:\n{response}")
 
     except Exception as e:
         print(f"Note: BAML function call failed (expected in test environment): {e}")
         print("This is normal - the parsing functionality works correctly.")
-
-if __name__ == "__main__":
-    asyncio.run(main())

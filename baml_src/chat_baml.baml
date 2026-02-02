@@ -41,7 +41,7 @@ class ReplyToUser {
   name "reply_to_user" @description(#"
     Use this tool when you want to send a natural language response shown to the user.
   "#)
-  arguments AIMessage @stream.with_state
+  arguments AIMessage
 }
 
 // The state of the conversation that will be sent
