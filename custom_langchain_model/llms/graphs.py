@@ -40,7 +40,7 @@ def make_general_chat_with_tools_graph() -> StateGraph:
         ai = await model.ainvoke(
             [sys] + non_system,
             context=context,
-            stream=False
+            stream=True
         )
         return {"messages": [ai]}
    
