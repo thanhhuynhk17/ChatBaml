@@ -43,6 +43,7 @@ OPENAI_API_KEY="sk_some_dummy_text"
 
 # Set the default role in your .env when using an OpenAI-compatible server hosted by vLLM
 DEFAULT_ROLE="user"
+BAML_LOG=off # to disable Baml log
 ```
 
 ## 📋 Recent Test Results
@@ -161,10 +162,9 @@ messages = [
 ]
 
 async def main():
-    # NOTE: Streaming is disabled due to a bug with partial tool outputs.
     # Streaming usage:
-    # async for chunk in chat_baml_with_tools.astream(messages):
-        # print(chunk)  
+    async for chunk in chat_baml_with_tools.astream(messages):
+        print(chunk.content, end="", flush=True)  
 
     # Async invoke
     result = await chat_baml_with_tools.ainvoke(messages)
