@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 
 class AddInput(BaseModel):
     """Add two integers."""
-    a: str = Field(description="First integer to add")
+    a: int = Field(description="First integer to add")
     b: int = Field(default=5, description="Second integer to add")
 @tool(args_schema=AddInput)
 def add(a: int, b: int) -> int:
@@ -11,7 +11,7 @@ def add(a: int, b: int) -> int:
 
 class MultiplyInput(BaseModel):
     """Multiply two integers."""
-    x: str = Field(description="First integer to multiply")
+    x: int = Field(description="First integer to multiply")
     y: int = Field(default=5, description="Second integer to multiply")
 @tool(args_schema=MultiplyInput)
 def multiply(x: int, y: int) -> int:

@@ -198,9 +198,8 @@ def convert_to_baml_tool(
     tb: Optional[TypeBuilder] = None,
     tools: List[Union[Type[BaseModel], Callable]] = None,
     property_name: str = 'structure_output',
-    is_multiple_tools: bool = False,
-    include_reply_to_user: bool = True
-) -> TypeBuilder:
+    is_multiple_tools: bool = False
+) -> Optional[TypeBuilder]:
     """
     Convert Pydantic models and/or Langchain tools to BAML types and add them as a dynamic schema property.
 
@@ -209,7 +208,6 @@ def convert_to_baml_tool(
         tools: List of tools (Pydantic BaseModel classes and/or @tool decorated functions)
         property_name: Name of the Dynamic schema property to add
         is_multiple_tools: If True, creates a list of union for multiple tool selection
-        include_reply_to_user: If True, includes ReplyToUser tool in the union
 
     Returns:
         TypeBuilder instance with the property added to DynamicSchema
@@ -218,8 +216,9 @@ def convert_to_baml_tool(
     if tb is None:
         tb = TypeBuilder()
 
-    if tools is None or len(tools) == 0 and not include_reply_to_user:
-        raise ValueError("At least one tool must be provided")
+    if tools is None or len(tools) == 0:
+        # No tools provided to convert_to_baml_tool.
+        return None
 
     if property_name is None or len(property_name.strip()) == 0:
         raise ValueError("property_name must be provided and non-empty")
@@ -234,10 +233,6 @@ def convert_to_baml_tool(
         tool_baml_type = parse_json_schema(tool_schema, tb)
         baml_types.append(tool_baml_type)
 
-    # Add ReplyToUser tool if requested
-    if include_reply_to_user:
-        baml_types.append(tb.ReplyToUser.type())
-
     # Create union of all tool types
     tools_union = tb.union(baml_types)
 
@@ -248,7 +243,7 @@ def convert_to_baml_tool(
         final_type = tools_union
 
     # Add the property to DynamicSchema
-    tb.DynamicSchema.add_property(property_name, final_type)
+    tb.DynamicSchema.add_property(property_name, final_type).description("If you want to use a tool, specify the tool and its arguments here.")
 
     return tb
 

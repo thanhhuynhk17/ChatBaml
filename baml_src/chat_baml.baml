@@ -25,10 +25,10 @@ template_string RenderMessages(messages: BaseMessage[]) ##"
       {% if m.role=="system" %}
         {{ _.role( "system" ) }}
         {{ m.content_block.text }}
-        {{ ctx.output_format(prefix="\nAnswer in JSON-like string ( no double quotes in keys ) using this schema:\n") }}
+        {{ ctx.output_format(prefix="\nAnswer in JSON-like string (no double quotes in keys) using this schema. Call a tool only when explicitly needed for the task; otherwise, respond with text-only output:\n") }}
       {% else %}
         {{ _.role( "system" ) }}
-        {{ ctx.output_format(prefix="\nAnswer in JSON-like string ( no double quotes in keys ) using this schema:\n") }}
+        {{ ctx.output_format(prefix="\nAnswer in JSON-like string (no double quotes in keys) using this schema. Call a tool only when explicitly needed for the task; otherwise, respond with text-only output:\n") }}
 
         {# normal render #}
         {{ _.role( m.role ) }}
@@ -53,7 +53,7 @@ template_string RenderMessages(messages: BaseMessage[]) ##"
 
       {# multimodal support #}
       {% if m.content_block.img %}
-        {{ m.content_block.img }}
+        {{- '\nImage:' ~ m.content_block.img }}
       {% endif %}
 
       {# tool call support #}
@@ -65,20 +65,6 @@ template_string RenderMessages(messages: BaseMessage[]) ##"
   {% endfor %}
 "##
 
-
-// === Tool Definitions ===
-class AIMessage {
-  role "assistant"
-  content string
-}
-
-class ReplyToUser {
-  name "reply_to_user" @description(#"
-    Use this tool when you want to send a natural language response shown to the user.
-  "#)
-  arguments AIMessage
-}
-
 // The state of the conversation that will be sent
 // to the agent. The client is responsible for updating
 // it with the result of tool calls.
@@ -89,7 +75,8 @@ class BamlState {
   "#)
 }
 
-function ChooseTool(state: BamlState) -> DynamicSchema {
+
+function ChooseTool(state: BamlState) -> string | DynamicSchema {
     client ChatBaml
     prompt #"
       {{RenderMessages(state.messages) }}
@@ -99,6 +86,16 @@ function ChooseTool(state: BamlState) -> DynamicSchema {
 test DynamicClassTest {
   functions [ChooseTool]
   type_builder {
+    class AIMessage {
+      role "assistant"
+      content string
+    }
+    class ReplyToUser {
+      name "reply_to_user" @description(#"
+        Use this tool when you want to send a natural language response shown to the user.
+      "#)
+      arguments AIMessage
+    }
     dynamic class DynamicSchema {
         selected_tool ReplyToUser
     }
