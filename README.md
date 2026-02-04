@@ -2,7 +2,7 @@
 
 A project that extends a Custom LangChain Chat Model to integrate with BAML, creating a bridge between LangChain's powerful LLM orchestration capabilities and BAML's structured data extraction and function calling features.
 
-Demo with 
+### Demo of LangChain create_agent with ChatBaml as the chat model, running on Qwen3-VL-8B-Instruct
 ![demo](images/chatbaml_react_agent.gif)
 
 **Status**: Active Development ⚠️
