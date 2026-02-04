@@ -23,5 +23,5 @@ tools = [add, multiply]
 agent = create_agent(
     chat_baml, 
     tools=tools,
-    system_prompt="You are an agent help many tasks. Only choose 1 tool at a time!"
-    )
+    system_prompt="You are a helpful assistant.\n\n# Tools\n\nYou may call one or more functions to assist with the user query.",
+)

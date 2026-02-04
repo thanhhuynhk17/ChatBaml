@@ -48,8 +48,6 @@ from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
-REPLY_TO_USER='reply_to_user'
-
 class ChatBaml(BaseChatModel):
     """
     A LangChain-compatible Chat Model that wraps BAML.
@@ -259,10 +257,8 @@ class ChatBaml(BaseChatModel):
                 tools=tools or [],
                 is_multiple_tools=False, # single / multiple tools
                 property_name=self.property_name,
-                # Predefined "ReplyToUser" tool used to route a tool's output back into the chat as an assistant (AI) message.
-                include_reply_to_user=True
             )
-            logger.debug(f"Successfully converted {len(tools)+1} tools ( ReplyToUser included ) to BAML format")
+            logger.debug(f"Successfully converted {len(tools)} tools to BAML format")
             return tb
         except Exception as e:
             logger.error(f"Failed to convert tools: {e}")
@@ -302,10 +298,7 @@ class ChatBaml(BaseChatModel):
             raise NotImplementedError("stop handling not implemented yet; will be added later")
         
         tools = kwargs.get('tools', [])
-        tool_names = [ cls.name if hasattr(cls, 'name') else cls.__name__ for cls in tools ]
-        # FIXME: REPLY_TO_USER now acting like a simple AIMessage, refactor later!
-        tool_names += [REPLY_TO_USER]
-        
+
         # Convert LangChain messages to BAML format
         baml_messages = self._convert_to_baml_messages(messages)
         # Create BamlState with converted messages
@@ -317,6 +310,7 @@ class ChatBaml(BaseChatModel):
         )
 
         try:
+            logger.debug("Starting BAML ChooseTool streaming with tools...")
             stream = self.b.stream.ChooseTool(
                 baml_state, 
                 {
@@ -324,14 +318,15 @@ class ChatBaml(BaseChatModel):
                 }
             )
 
-            prev_content: Union[str, list] = ""
+            prev_content: Optional[str] = None
             ai_message: Optional[AIMessageChunk] = None
             for partial in stream:
                 partial_delta = self._extract_partial_delta(
                     partial=partial,
                     prev_content=prev_content
                 )
-                if partial_delta["tool_name"] not in ("", REPLY_TO_USER): # tool call not REPLY_TO_USER, yield full tool call at end
+                # tool call detected, yield full tool call at end
+                if partial_delta["tool_name"]:
                     final = stream.get_final_response()
                     ai_message = self._convert_to_ai_message(
                         dynamic_schema=final,
@@ -341,7 +336,7 @@ class ChatBaml(BaseChatModel):
                     yield generation_chunk
                     break
                 
-                # delta string for reply_to_user
+                # delta string for response content
                 delta = partial_delta["delta"]
                 if not delta:
                     logger.debug("No new delta in this chunk, skipping...")
@@ -359,11 +354,8 @@ class ChatBaml(BaseChatModel):
                 yield generation_chunk
 
                 # update prev_content if delta is non-empty
-                if delta:
-                    if prev_content is None:
-                        prev_content = delta
-                    else:
-                        prev_content += delta
+                if partial_delta.get("prev_content", None):
+                    prev_content = partial_delta["prev_content"]
                 
         except BamlAbortError:
             yield "data: [CANCELLED]\n\n"
@@ -373,8 +365,8 @@ class ChatBaml(BaseChatModel):
     # for streaming usage
     def _extract_partial_delta(
         self,
-        partial: "DynamicSchemaChunk",
-        prev_content: Union[str | list] = ""
+        partial: DynamicSchemaChunk,
+        prev_content: Optional[str] = None
     ) -> Dict[str, Union[str, Dict[str, Any]]]:
         """
         Extracts incremental text delta from BAML tool streaming chunks.
@@ -403,7 +395,24 @@ class ChatBaml(BaseChatModel):
         Raises:
             ValueError: If content discontinuity is detected or list-type prev_content is used
         """
-        EMPTY_DELTA: Dict[str, Union[str, Dict[str, Any]]] = {"tool_name": "", "delta": ""}
+        # Handle string case
+        if isinstance(partial, str):
+            logger.debug("Received string-type partial, handle string streaming separately")
+            if not prev_content:
+                return {"tool_name": None, "delta": partial, "prev_content": partial}
+            if not partial.startswith(prev_content):
+                logger.debug(
+                    f"Content discontinuity detected in string partial:\n"
+                    f"  prev: {repr(prev_content[:50])}...\n"
+                    f"  curr: {repr(partial[:50])}..."
+                )
+                # override prev_content to avoid crash
+                return {"tool_name": None, "delta": partial, "prev_content": partial}
+            delta = partial[len(prev_content):]
+            prev_content += delta
+            return {"tool_name": None, "delta": delta, "prev_content": prev_content}
+
+        EMPTY_DELTA: Dict[Optional[str], Union[str, Dict[str, Any]]] = {"tool_name": None, "delta": "", "prev_content": prev_content}
 
         # === Step 1: Safely extract tool_dict ===
         tool_dict = getattr(partial, self.property_name, None)
@@ -411,43 +420,14 @@ class ChatBaml(BaseChatModel):
             return EMPTY_DELTA
 
         # === Step 2: Validate tool name ===
-        tool_name = tool_dict.get("name") or ""
-        # If it's not a reply-to-user tool, return with tool_name but no delta
-        if not tool_name or tool_name != REPLY_TO_USER:
-            return {"tool_name": tool_name, "delta": ""}
-
-        # === Step 3: Extract arguments safely ===
-        arguments = tool_dict.get("arguments")
-        if not isinstance(arguments, dict) or not arguments:
-            return {"tool_name": tool_name, "delta": ""}
-
-        # === Step 4: Extract content (handle None/missing gracefully) ===
-        content_raw = arguments.get("content")
-        if content_raw is None:  # None means incomplete → block streaming
-            return {"tool_name": tool_name, "delta": ""}
-
-        content = str(content_raw)
-        # === Step 5: Compute delta ===
-        if not content:  # Empty string = no tokens yet
-            return {"tool_name": tool_name, "delta": ""}
-
-        # First chunk: emit initial content
-        if not prev_content:
-            return {"tool_name": tool_name, "delta": content}
-
-        if isinstance(prev_content, list):
-            raise ValueError("List-type prev_content not supported in this implementation for now")
-
-        # Subsequent chunks: validate monotonic growth
-        if not content.startswith(prev_content):
-            raise ValueError(
-                f"Content discontinuity detected:\n"
-                f"  prev: {repr(prev_content[:50])}...\n"
-                f"  curr: {repr(content[:50])}..."
-            )
-
-        # Return ONLY the new tokens
-        return {"tool_name": tool_name, "delta": content[len(prev_content):]}
+        tool_name = tool_dict.get("name", None) 
+        # If has no tool name, return empty delta
+        if not tool_name:
+            return EMPTY_DELTA
+        
+        # Tool will be wait for full response, do nothing here
+        return {"tool_name": tool_name, "delta": ""}
+        
         
     def _convert_to_ai_message(
         self,
@@ -473,66 +453,24 @@ class ChatBaml(BaseChatModel):
         """
         # Safe extraction – this is the most battle-tested pattern with BAML streaming
         tool_dict = getattr(dynamic_schema, self.property_name, None)
-        if not isinstance(tool_dict, dict):
-            tool_dict = {}
-
-        tool_name = tool_dict.get("name")
-        arguments = tool_dict.get("arguments") or {}
         
         if is_streaming:
-            # ─────────────── Streaming ───────────────
-            if tool_name in (None, ""):
-                # undecided → content delta
-                return AIMessageChunk(
-                    content=''
-                )
-
-            if tool_name == REPLY_TO_USER:
-
-                if not arguments.get("content"):
-                    return AIMessageChunk(
-                        content=''
-                    )
-                return AIMessageChunk(
-                    content=arguments["content"]
-                )
-
-            # real tool call delta (even partial)
             return AIMessageChunk(
-                content=render_agent_wants_to(tool_name, arguments),
-                tool_call_chunks=[{
-                    "name": tool_name,
-                    "args": json.dumps(arguments, ensure_ascii=False) if arguments else "{}",
-                    "id": str(uuid.uuid4())
-                }]
-            )
-
-        else:
-            # ─────────────── Final / non-streaming ───────────────
-            if tool_name in (None, ""):
-                return AIMessage(
-                    content=getattr(dynamic_schema, "content", "") or ""
-                )
-
-            if tool_name == REPLY_TO_USER:
-                return AIMessage(
-                    content=arguments.get("content", "")
-                )
-
-            # Final tool call → validate
-            if tool_name not in self._tool_names:
-                raise ValueError(
-                    f"Tool '{tool_name}' selected but not in available tools: {self._tool_names}"
-                )
-
-            return AIMessage(
                 content='',
                 tool_calls=[{
-                    "name": tool_name,
-                    "args": arguments,
+                    "name": tool_dict["name"],
+                    "args": tool_dict["arguments"],
                     "id": str(uuid.uuid4())
                 }]
             )
+        return AIMessage(
+            content='',
+            tool_calls=[{
+                "name": tool_dict["name"],
+                "args": tool_dict["arguments"],
+                "id": str(uuid.uuid4())
+            }]
+        )
 
     @property
     def b(self):
@@ -598,7 +536,6 @@ class ChatBaml(BaseChatModel):
 
         # self tool names for validation later
         self._tool_names = [ cls.name if hasattr(cls, 'name') else cls.__name__ for cls in tools_to_bind ]
-        self._tool_names += [REPLY_TO_USER]
         
         # Create extra dict as specified by user
         extra: Dict[str, Any] = {
