@@ -78,6 +78,16 @@ agent = create_agent(
 )
 ```
 
+### Run the React Agent
+
+Start the LangGraph development server to run the agent locally:
+
+```bash
+langgraph dev
+```
+or just press F5 in vscode (make sure .vscode/launch.json is configured)
+
+
 ### Available Tools
 - **add**: Add two integers using Pydantic schema
 - **multiply**: Multiply two integers using Pydantic schema
