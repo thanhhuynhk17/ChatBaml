@@ -16,3 +16,6 @@ wheels/
 baml_client/
 .langgraph_api/
 uv.lock
+
+# .cline
+.cline/
