@@ -3,7 +3,7 @@ name = "custom-langchain-model"
 version = "0.1.0"
 description = "LangChain custom chat model tutorial"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.10"
 dependencies = [
     "baml-py>=0.218.0",
     "langchain>=1.0.0",
