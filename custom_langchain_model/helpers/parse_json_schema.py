@@ -1,6 +1,6 @@
 import warnings
 from typing import Any, Dict, List, Optional, Union, Type, Callable
-from baml_client.type_builder import TypeBuilder, FieldType
+from custom_langchain_model.baml_client.type_builder import TypeBuilder, FieldType
 from pydantic import BaseModel
 from langchain_core.utils.function_calling import convert_to_openai_tool
 
@@ -253,8 +253,8 @@ if __name__ == "__main__":
     from dotenv import load_dotenv, find_dotenv
     load_dotenv(find_dotenv())
     from pydantic import BaseModel, Field
-    from baml_client import b  # Import BAML client
-    from baml_client.types import (
+    from custom_langchain_model.baml_client import b  # Import BAML client
+    from custom_langchain_model.baml_client.types import (
         BamlState,
         BaseMessage as BamlBaseMessage
     )
@@ -295,7 +295,7 @@ if __name__ == "__main__":
         words = re.findall(r"\S+", text.strip())
         return len(words)
 
-    from baml_client.type_builder import TypeBuilder
+    from custom_langchain_model.baml_client.type_builder import TypeBuilder
     import re
     
     tb = convert_to_baml_tool(

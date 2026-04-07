@@ -18,6 +18,41 @@ class BaseMessage {
   content_block ContentBlock
 }
 
+template_string RenderChat(messages: BaseMessage[]) ##"
+  {% for m in messages %}
+    {% if loop.first %}
+      {% if m.role=="system" %}
+        {{ _.role( "system" ) }}
+        {{ m.content_block.text }}
+      {% else %}
+        {{ _.role( "system" ) }}
+
+        {# normal render #}
+        {{ _.role( m.role ) }}
+        {{ m.content_block.text }}
+        
+        {# multimodal support #}
+        {% if m.content_block.img %}
+          {{ m.content_block.img }}
+        {% endif %}
+
+      {% endif %}
+    
+    {% else %}
+      {# normal render #}
+      {{ _.role( m.role ) }}
+      {{ m.content_block.text }}
+
+      {# multimodal support #}
+      {% if m.content_block.img %}
+        {{- '\nImage:' ~ m.content_block.img }}
+      {% endif %}
+      
+    {% endif %}
+    
+  {% endfor %}
+"##
+
 // FIXME: Duplicated message rendering logic should be removed
 template_string RenderMessages(messages: BaseMessage[]) ##"
   {% for m in messages %}
@@ -75,6 +110,13 @@ class BamlState {
   "#)
 }
 
+
+function Chat(state: BamlState) -> string {
+    client ChatBaml
+    prompt #"
+      {{RenderChat(state.messages) }}
+    "#
+}
 
 function ChooseTool(state: BamlState) -> string | DynamicSchema {
     client ChatBaml

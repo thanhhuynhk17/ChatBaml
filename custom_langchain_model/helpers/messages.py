@@ -4,7 +4,7 @@ import requests
 import mimetypes
 from urllib.parse import urlparse
 import json
-from baml_client.types import ContentBlock, ToolCall
+from custom_langchain_model.baml_client.types import ContentBlock, ToolCall
 from baml_py import Image as BamlImage
 
 import logging

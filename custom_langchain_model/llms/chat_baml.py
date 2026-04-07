@@ -1,10 +1,8 @@
 import os
-from dotenv import load_dotenv, find_dotenv
 
 from custom_langchain_model.helpers.render_agent_wants_to import (
     format_args_no_quote_keys, render_agent_wants_to
 )
-load_dotenv(find_dotenv())
 import uuid
 import json
 import logging
@@ -12,16 +10,18 @@ from typing import Any, Dict, Iterator, List, Literal, Optional, Sequence, Union
 from pydantic import Field  # Import Field for metadata
 
 from baml_py import ClientRegistry
-from baml_client import (
+from custom_langchain_model.baml_client import (
     b as baml_root_client
 )
-from baml_client.types import (
+
+from custom_langchain_model.baml_client.types import (
     BamlState,
     BaseMessage as BamlBaseMessage,
-    DynamicSchema
+    DynamicSchema,
 )
-from baml_client.stream_types import DynamicSchema as DynamicSchemaChunk
-from baml_client.type_builder import TypeBuilder
+
+from custom_langchain_model.baml_client.stream_types import DynamicSchema as DynamicSchemaChunk
+from custom_langchain_model.baml_client.type_builder import TypeBuilder
 from baml_py import baml_py
 
 from custom_langchain_model.helpers.parse_json_schema import convert_to_baml_tool
@@ -252,6 +252,9 @@ class ChatBaml(BaseChatModel):
         if tool_choice:
             raise NotImplementedError("Tool choice handling not implemented yet; will be added later")
 
+        if not tools:
+            return None
+
         try:
             tb = convert_to_baml_tool(
                 tools=tools or [],
@@ -310,13 +313,17 @@ class ChatBaml(BaseChatModel):
         )
 
         try:
-            logger.debug("Starting BAML ChooseTool streaming with tools...")
-            stream = self.b.stream.ChooseTool(
-                baml_state, 
-                {
-                    "tb": tb
-                }
-            )
+            if tb is not None and tools:
+                logger.debug("Starting BAML ChooseTool streaming with tools...")
+                stream = self.b.stream.ChooseTool(
+                    baml_state, 
+                    {
+                        "tb": tb
+                    }
+                )
+            else:
+                logger.debug("Starting BAML Chat streaming without tools...")
+                stream = self.b.stream.Chat(baml_state)
 
             prev_content: Optional[str] = None
             ai_message: Optional[AIMessageChunk] = None
@@ -618,18 +625,25 @@ class ChatBaml(BaseChatModel):
         )
         # Call the chat completion request method
         try:
-            dynamic_schema = self.b.ChooseTool(baml_state, {"tb": tb})
-            logger.debug(f"BAML ChooseTool response received: {type(dynamic_schema)}")
+            if tb is not None and tools:
+                result = self.b.ChooseTool(baml_state, {"tb": tb})
+                logger.debug(f"BAML ChooseTool response received: {type(result)}")
+            else:
+                result = self.b.Chat(baml_state)
+                logger.debug(f"BAML Chat response received: {type(result)}")
+                return ChatResult(generations=[ChatGeneration(
+                    message=AIMessage(content=result)
+                )])
         except Exception as e:
-            logger.error(f"BAML ChooseTool function call failed: {e}")
+            logger.error(f"BAML function call failed: {e}")
             raise RuntimeError(f"BAML function execution failed: {e}")
 
-        ai_message = self._convert_to_ai_message(dynamic_schema)
+        ai_message = self._convert_to_ai_message(result)
 
         # Create ChatGeneration
         generation = ChatGeneration(
             message=ai_message,
-            generation_info={"baml": dynamic_schema}
+            generation_info={"baml": result}
         )
         # Return ChatResult
         return ChatResult(generations=[generation])
@@ -638,6 +652,9 @@ class ChatBaml(BaseChatModel):
 import asyncio
 
 async def main():
+    from dotenv import load_dotenv, find_dotenv
+    load_dotenv(find_dotenv())
+    
     from langchain_core.messages import (
         AIMessage,
         HumanMessage,
