@@ -14,7 +14,10 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "ddgs>=9.13.0",
+    "duckduckgo-search>=8.1.1",
     "ipykernel>=7.1.0",
+    "langchain-community>=0.4.1",
     "langchain-openai>=1.1.7",
     "langgraph-cli[inmem]>=0.4.12",
     "pytest>=9.0.2",

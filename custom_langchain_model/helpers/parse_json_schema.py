@@ -197,7 +197,7 @@ def parse_json_schema(json_schema: Dict[str, Any], tb: TypeBuilder) -> FieldType
 def convert_to_baml_tool(
     tb: Optional[TypeBuilder] = None,
     tools: List[Union[Type[BaseModel], Callable]] = None,
-    property_name: str = 'structure_output',
+    property_name: str = 'selected_tool',
     is_multiple_tools: bool = False
 ) -> Optional[TypeBuilder]:
     """

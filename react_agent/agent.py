@@ -4,6 +4,7 @@ from react_agent.tools import (
     add,
     multiply
 )
+from langchain_community.tools import DuckDuckGoSearchRun
 
 import os
 from dotenv import load_dotenv, find_dotenv
@@ -17,11 +18,23 @@ chat_baml = ChatBaml(
     temperature=0.7,
     
 )
+search = DuckDuckGoSearchRun()
+tools = [add, multiply, search]
 
-tools = [add, multiply]
-
+from textwrap import dedent
+# Import datetime to giving agent exact time for better reasoning
+from datetime import datetime
+today = datetime.now().strftime("%Y-%m-%d")
 agent = create_agent(
     chat_baml, 
     tools=tools,
-    system_prompt="You are a helpful assistant.\n\n# Tools\n\nYou may call one or more functions to assist with the user query.",
-)
+    system_prompt=dedent("""
+        You are a helpful assistant with tools for math and web search.
+        
+        ALWAYS use a tool when:
+        - Any math operation → add or multiply tool
+        - Any fact, current info, or external data → search tool
+        
+        Answer directly ONLY for casual conversation.
+    """)
+    )
